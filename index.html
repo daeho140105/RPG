@@ -20,6 +20,27 @@ button:disabled{opacity:.4}
 #controls .action{width:100px;font-size:14px}
 #dex{font-size:14px;line-height:2}
 small{color:#c6d1e1}
+/* 화면 배치 수정 */
+.panel {
+  min-width: 280px;
+  box-sizing: border-box;
+}
+
+#controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+}
+
+button {
+  min-width: 75px;
+  white-space: nowrap;
+  word-break: keep-all;
+  writing-mode: horizontal-tb;
+}
+
 </style>
 </head>
 <body>
