@@ -40,6 +40,22 @@ button {
   word-break: keep-all;
   writing-mode: horizontal-tb;
 }
+#controls,
+.panel {
+  font-family: Arial, "Malgun Gothic", "맑은 고딕", sans-serif;
+  line-height: 1.6;
+  word-break: keep-all;
+}
+
+.panel p {
+  line-height: 1.8;
+  margin: 10px 0;
+}
+
+button {
+  font-family: Arial, "Malgun Gothic", "맑은 고딕", sans-serif;
+  line-height: 1.4;
+}
 
 </style>
 </head>
@@ -246,6 +262,23 @@ ctx.fillText(
  }
 
  drawCharacter(player.x,player.y,"🧑‍🌾",34);
+drawBar(player.x-24,player.y-45,48,7,player.hp,player.maxHp);
+
+ctx.fillStyle="white";
+ctx.font="bold 14px Arial";
+ctx.textAlign="center";
+ctx.strokeStyle="#222";
+ctx.lineWidth=3;
+ctx.strokeText(
+ Math.ceil(player.hp)+" / "+player.maxHp,
+ player.x,
+ player.y-53
+);
+ctx.fillText(
+ Math.ceil(player.hp)+" / "+player.maxHp,
+ player.x,
+ player.y-53
+);
 
  if(attackTimer>0){
   ctx.strokeStyle="#fff17b";
