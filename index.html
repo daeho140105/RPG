@@ -183,13 +183,19 @@ function drawCharacter(x,y,emoji,size=30){
 }
 
 function drawBar(x,y,w,h,value,max){
- ctx.fillStyle="#333";
+ ctx.save();
+ ctx.fillStyle="#222";
+ ctx.fillRect(x-2,y-2,w+4,h+4);
+ ctx.fillStyle="#e53935";
  ctx.fillRect(x,y,w,h);
- ctx.fillStyle="#63df75";
- ctx.fillRect(x,y,w*Math.max(0,value/max),h);
- ctx.strokeStyle="white";
+ ctx.fillStyle="#39e75f";
+ ctx.fillRect(x,y,w*Math.max(0,Math.min(1,value/max)),h);
+ ctx.strokeStyle="#ffffff";
+ ctx.lineWidth=2;
  ctx.strokeRect(x,y,w,h);
+ ctx.restore();
 }
+
 
 function render(){
  drawBackground();
@@ -201,6 +207,21 @@ function render(){
   ctx.textAlign="center";
   ctx.fillText(monster.name,monster.x,monster.y-30);
   drawBar(monster.x-24,monster.y-23,48,6,monster.hp,monster.maxHp);
+ctx.fillStyle="white";
+ctx.font="bold 14px Arial";
+ctx.textAlign="center";
+ctx.strokeStyle="#222";
+ctx.lineWidth=3;
+ctx.strokeText(
+ Math.ceil(monster.hp)+" / "+monster.maxHp,
+ monster.x,
+ monster.y-37
+);
+ctx.fillText(
+ Math.ceil(monster.hp)+" / "+monster.maxHp,
+ monster.x,
+ monster.y-37
+);
  }
 
  drawCharacter(player.x,player.y,"🧑‍🌾",34);
