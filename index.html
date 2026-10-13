@@ -1,0 +1,163 @@
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>검의 수집가</title>
+<style>
+body {
+  background: #151729;
+  color: white;
+  font-family: sans-serif;
+  text-align: center;
+  padding: 15px;
+}
+h1 { color: #ffd76a; }
+.panel {
+  background: #252a43;
+  padding: 18px;
+  margin: 15px auto;
+  border-radius: 15px;
+  max-width: 450px;
+}
+button {
+  background: #6856d9;
+  color: white;
+  border: none;
+  padding: 13px 20px;
+  margin: 5px;
+  border-radius: 10px;
+  font-size: 16px;
+  cursor: pointer;
+}
+button:active { transform: scale(.96); }
+#result { font-size: 21px; color: #ffe28a; }
+.small { color: #bfc5df; }
+</style>
+</head>
+<body>
+
+<h1>⚔️ 검의 수집가 ⚔️</h1>
+<p>검을 뽑고 몬스터를 포획하자!</p>
+
+<div class="panel">
+<h2>💰 보유 코인</h2>
+<h2 id="coins">100</h2>
+</div>
+
+<div class="panel">
+<h2>🎰 검 뽑기 기계</h2>
+<p class="small">10코인을 사용해 랜덤 검을 뽑으세요!</p>
+<button onclick="drawSword()">검 뽑기 (10코인)</button>
+<p id="sword">현재 검: 나무검</p>
+<p id="result"></p>
+</div>
+
+<div class="panel">
+<h2>🌲 몬스터 탐험</h2>
+<div id="monster">아직 몬스터를 발견하지 못했습니다.</div>
+<button onclick="explore()">몬스터 찾기</button>
+<button onclick="capture()">몬스터 포획하기</button>
+</div>
+
+<div class="panel">
+<h2>📖 몬스터 도감</h2>
+<p id="collection">아직 포획한 몬스터가 없습니다.</p>
+</div>
+
+<script>
+let coins = 100;
+let sword = {name:"나무검", power:10};
+let currentMonster = null;
+let collection = [];
+
+const swords = [
+ {name:"나무검", power:10, chance:45},
+ {name:"강철검", power:25, chance:28},
+ {name:"화염검", power:45, chance:15},
+ {name:"번개검", power:70, chance:8},
+ {name:"드래곤 슬레이어", power:100, chance:3},
+ {name:"창조의 검", power:150, chance:1}
+];
+
+const monsters = [
+ {name:"슬라임", power:10, emoji:"🟢"},
+ {name:"불꽃 여우", power:25, emoji:"🦊"},
+ {name:"숲의 정령", power:40, emoji:"🌳"},
+ {name:"아이스 드래곤", power:70, emoji:"🐉"},
+ {name:"어둠의 군주", power:100, emoji:"👹"}
+];
+
+function update() {
+ document.getElementById("coins").textContent = coins;
+ document.getElementById("sword").textContent =
+ "현재 검: " + sword.name + " (힘 " + sword.power + ")";
+ document.getElementById("collection").textContent =
+ collection.length
+ ? collection.join(" / ")
+ : "아직 포획한 몬스터가 없습니다.";
+}
+
+function drawSword() {
+ if(coins < 10) {
+  alert("코인이 부족합니다!");
+  return;
+ }
+ coins -= 10;
+
+ let r = Math.random()*100;
+ let sum = 0;
+ for(let s of swords) {
+  sum += s.chance;
+  if(r < sum) {
+   sword = s;
+   break;
+  }
+ }
+ document.getElementById("result").textContent =
+ "✨ " + sword.name + " 획득! (힘 " + sword.power + ")";
+ update();
+}
+
+function explore() {
+ currentMonster = monsters[
+ Math.floor(Math.random()*monsters.length)
+ ];
+ document.getElementById("monster").innerHTML =
+ "<h2>" + currentMonster.emoji + "</h2>" +
+ "<h3>" + currentMonster.name + "</h3>" +
+ "몬스터 힘: " + currentMonster.power;
+}
+
+function capture() {
+ if(!currentMonster) {
+  alert("먼저 몬스터를 찾아주세요!");
+  return;
+ }
+
+ let chance = Math.min(90, 25 + sword.power - currentMonster.power/2);
+
+ if(Math.random()*100 < chance) {
+  if(collection.includes(currentMonster.name)) {
+   coins += 15;
+   alert("중복 몬스터! 보상으로 15코인을 얻었습니다.");
+  } else {
+   collection.push(currentMonster.name);
+   coins += 10;
+   alert("🎉 " + currentMonster.name + " 포획 성공!");
+  }
+ } else {
+  alert("포획 실패! 더 강한 검을 뽑아보세요.");
+ }
+
+ currentMonster = null;
+ document.getElementById("monster").textContent =
+ "다음 몬스터를 찾아보세요!";
+ update();
+}
+
+update();
+</script>
+</body>
+</html>
