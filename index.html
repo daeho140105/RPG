@@ -48,7 +48,7 @@ small{color:#c6d1e1}
 <div>
 <button class="action" id="attack">⚔️ 공격</button><br>
 <button class="action" id="capture">🪄 포획</button>
-</div>
+<button class="action" id="explore">🌲 탐험</button>
 </div>
 
 <div class="panel">
@@ -373,7 +373,13 @@ document.querySelectorAll("[data-dir]").forEach(b=>{
 $("attack").onclick=attack;
 $("capture").onclick=capture;
 $("draw").onclick=drawSword;
-
+$("explore").onclick=()=>{
+ if(monster&&monster.alive){
+  say("이미 몬스터와 전투 중입니다!");
+  return;
+ }
+ spawnMonster();
+};
 $("heal").onclick=()=>{
  if(coins<20){say("코인이 부족합니다!");return;}
  if(hp>=100){say("체력이 이미 가득 찼습니다!");return;}
