@@ -229,10 +229,9 @@ function drawBar(x,y,w,h,value,max){
  ctx.fillRect(x,y,w*Math.max(0,Math.min(1,value/max)),h);
  ctx.strokeStyle="#ffffff";
  ctx.lineWidth=2;
- ctx.strokeRect(x,y,w,h);
+ ctx.strokeRect(x,y,w,h);                                                                                 
  ctx.restore();
 }
-
 
 function render(){
  drawBackground();
@@ -262,23 +261,26 @@ ctx.fillText(
  }
 
  drawCharacter(player.x,player.y,"🧑‍🌾",34);
-drawBar(player.x-24,player.y-45,48,7,hp,100);
+ drawBar(player.x-24,player.y-45,48,7,hp,100);
 
-ctx.fillStyle="white";
-ctx.font="bold 14px Arial";
-ctx.textAlign="center";
-ctx.strokeStyle="#222";
-ctx.lineWidth=3;
-ctx.strokeText(
- Math.ceil(player.hp)+" / 100"
- player.x,
- player.y-53
-);
-ctx.fillText(
- Math.ceil(player.hp)+" / "+player.maxHp,
- player.x,
- player.y-53
-);
+ ctx.fillStyle="white";
+ ctx.font="bold 14px Arial";
+ ctx.textAlign="center";
+ ctx.strokeStyle="#222";
+ ctx.lineWidth=3;
+
+ ctx.strokeText(
+  Math.ceil(hp)+" / 100",
+  player.x,
+  player.y-53
+ );
+
+ ctx.fillText(
+  Math.ceil(hp)+" / 100",
+  player.x,
+  player.y-53
+ );
+
 
  if(attackTimer>0){
   ctx.strokeStyle="#fff17b";
