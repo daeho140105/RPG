@@ -20,6 +20,17 @@ button:disabled{opacity:.4}
 #controls .action{width:100px;font-size:14px}
 #dex{font-size:14px;line-height:2}
 small{color:#c6d1e1}
+.gacha-layout{display:flex;justify-content:center;align-items:stretch;gap:12px;max-width:800px;margin:12px auto;padding:0 8px}
+.gacha-layout .panel{flex:1;margin:0;min-width:0}
+.gacha-machine{display:flex;flex-direction:column;justify-content:center;align-items:center}
+#probabilityTable{width:100%;border-collapse:collapse;font-size:13px;text-align:left}
+#probabilityTable th,#probabilityTable td{padding:6px 5px;border-bottom:1px solid #46546d}
+#probabilityTable th:last-child,#probabilityTable td:last-child{text-align:right;white-space:nowrap}
+.rarity-common{color:#d8e0eb}.rarity-uncommon{color:#69d68b}.rarity-rare{color:#65baff}.rarity-epic{color:#c18aff}.rarity-legendary{color:#ffca55}.rarity-mythic{color:#ff7777}
+#drawResult{min-height:48px;padding:8px;border-radius:8px;background:#1b2638}
+#drawResult.special{animation:glow .8s ease-in-out 3}
+@keyframes glow{50%{background:#66502b;box-shadow:0 0 18px #ffd45e}}
+@media(max-width:620px){.gacha-layout{flex-direction:column}.gacha-layout .panel{width:100%}}
 /* 화면 배치 수정 */
 .panel {
   min-width: 280px;
@@ -119,11 +130,21 @@ button {
 <button class="action" id="explore">🌲 탐험</button>
 </div>
 </div>
-<div class="panel">
-<h3>🎰 검 뽑기 기계</h3>
-<p>10코인으로 랜덤 검을 뽑으세요!</p>
-<button id="draw">검 뽑기 (10코인)</button>
-<p id="drawResult">현재 장착 검: 나무검</p>
+
+<div class="gacha-layout">
+ <div class="panel gacha-machine">
+  <h3>🎰 검 뽑기 기계</h3>
+  <p>10코인으로 랜덤 검을 뽑으세요!</p>
+  <button id="draw">검 뽑기 (10코인)</button>
+  <p id="drawResult">현재 장착 검: 나무검</p>
+ </div>
+ <div class="panel">
+  <h3>📊 검 뽑기 확률표</h3>
+  <table id="probabilityTable">
+   <thead><tr><th>검 이름</th><th>등급</th><th>확률</th></tr></thead>
+   <tbody id="probabilityRows"></tbody>
+  </table>
+ </div>
 </div>
 
 <div class="panel">
@@ -166,12 +187,15 @@ const trees=[
 ];
 
 const swords=[
- {name:"나무검",power:10,chance:40},
- {name:"강철검",power:25,chance:28},
- {name:"화염검",power:45,chance:17},
- {name:"번개검",power:70,chance:9},
- {name:"드래곤 슬레이어",power:100,chance:5},
- {name:"창조의 검",power:150,chance:1}
+ {name:"나무검",power:10,chance:35,rarity:"일반",className:"common"},
+ {name:"강철검",power:25,chance:27,rarity:"고급",className:"uncommon"},
+ {name:"화염검",power:45,chance:18,rarity:"희귀",className:"rare"},
+ {name:"번개검",power:70,chance:10,rarity:"희귀",className:"rare"},
+ {name:"드래곤 슬레이어",power:100,chance:6,rarity:"영웅",className:"epic"},
+ {name:"창조의 검",power:150,chance:2.5,rarity:"전설",className:"legendary"},
+ {name:"성검 엑스칼리버",power:220,chance:1,rarity:"전설",className:"legendary"},
+ {name:"공허의 검",power:350,chance:0.4,rarity:"신화",className:"mythic"},
+ {name:"천공의 검",power:500,chance:0.1,rarity:"신화",className:"mythic"}
 ];
 
 const species=[
@@ -183,6 +207,12 @@ const species=[
 ];
 
 function say(t){message=t;$("status").textContent=t;}
+
+function renderProbabilityTable(){
+ $("probabilityRows").innerHTML=swords.map(s=>
+  `<tr><td>${s.name}</td><td class="rarity-${s.className}">${s.rarity}</td><td>${s.chance}%</td></tr>`
+ ).join("");
+}
 
 function updateUI(){
  $("coins").textContent=coins;
@@ -410,15 +440,21 @@ function capture(){
 function drawSword(){
  if(coins<10){say("코인이 부족합니다!");return;}
  coins-=10;
- let r=Math.random()*100;
+ const r=Math.random()*100;
  let total=0;
- for(let s of swords){
+ let won=swords[swords.length-1];
+ for(const s of swords){
   total+=s.chance;
-  if(r<total){sword=s;break;}
+  if(r<total){won=s;break;}
  }
- owned.push(sword.name);
- say("✨ "+sword.name+" 획득! 공격력 "+sword.power);
+ sword=won;
+ owned.push(won.name);
+ const result=$("drawResult");
+ result.textContent=`🎉 ${won.rarity} 등급 ${won.name} 획득! (공격력 ${won.power})`;
+ result.className=["legendary","mythic"].includes(won.className)?"special":"";
+ say(`✨ ${won.name} 획득! 등급: ${won.rarity} / 공격력: ${won.power}`);
  updateUI();
+ result.textContent=`🎉 ${won.rarity} 등급 ${won.name} 획득! (공격력 ${won.power})`;
 }
 
 function update(dt){
@@ -524,6 +560,7 @@ function loadGame(){
 }
 
 loadGame();
+renderProbabilityTable();
 updateUI();
 requestAnimationFrame(loop);
 </script>
