@@ -113,6 +113,20 @@ button {
 #bossRecords{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
 .boss-record{background:#1b2638;padding:8px 12px;border-radius:8px;border:1px solid #46546d}
 .boss-record.cleared{border-color:#e8bd58;color:#ffdc83}
+#inventoryButton{background:#267b9b}
+#inventoryOverlay{display:none;position:fixed;inset:0;z-index:30;background:rgba(0,0,0,.78);align-items:center;justify-content:center;padding:14px}
+#inventoryOverlay.open{display:flex}
+#inventoryWindow{width:min(720px,100%);max-height:85vh;overflow:auto;background:#253149;border:2px solid #7186a8;border-radius:16px;padding:16px;box-shadow:0 15px 50px #000}
+#inventoryHeader{display:flex;align-items:center;justify-content:space-between;gap:10px}
+#inventoryHeader h2{margin:5px 0;color:#ffdc83}
+#inventoryItems{display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:10px;margin-top:12px;text-align:left}
+.item-card{background:#1b2638;border:1px solid #46546d;border-radius:11px;padding:12px}
+.item-card.equipped{border:2px solid #ffca55;box-shadow:0 0 12px #ffca5544}
+.item-card h4{margin:0 0 8px}
+.item-card p{margin:5px 0;font-size:13px}
+.item-card button{width:100%;margin:8px 0 0}
+.item-rarity{font-size:12px;color:#ffdc83}
+#inventoryCount{color:#c6d1e1;font-size:13px}
 </style>
 </head>
 <body>
@@ -126,11 +140,22 @@ button {
 <span>⭐ 레벨: <b id="level">1</b></span>
 <span>❤️ 체력: <b id="hp">100</b>/100</span>
 <span>⚔️ 검: <b id="sword">나무검</b></span>
+<button id="inventoryButton">🎒 인벤토리</button>
 </div>
 
 <canvas id="game" width="800" height="480"></canvas>
 <div id="status">숲을 탐험해 몬스터를 찾아보세요!</div>
 <div id="bossIntro" aria-live="assertive"><div class="boss-icon" id="bossIntroEmoji">👑</div><strong id="bossIntroName">보스 등장!</strong><span>강력한 보스가 나타났다!</span></div>
+<div id="inventoryOverlay" role="dialog" aria-modal="true" aria-labelledby="inventoryTitle">
+ <div id="inventoryWindow">
+  <div id="inventoryHeader">
+   <div><h2 id="inventoryTitle">🎒 검 인벤토리</h2><div id="inventoryCount">보유한 검 0종</div></div>
+   <button id="closeInventory" aria-label="인벤토리 닫기">✖ 닫기</button>
+  </div>
+  <p>보유한 검을 확인하고 장착할 수 있어. 보스에게서 받은 보상 검도 여기에 표시돼!</p>
+  <div id="inventoryItems"></div>
+ </div>
+</div>
 
 <div id="controls">
 <div>
@@ -268,6 +293,39 @@ function updateUI(){
  $("drawResult").textContent="현재 장착 검: "+sword.name+" (힘 "+sword.power+")";
  renderDex();
  renderBossRecords();
+ if($("inventoryOverlay").classList.contains("open"))renderInventory();
+}
+
+function renderInventory(){
+ const uniqueNames=[...new Set(["나무검",...owned])];
+ const items=uniqueNames.map(name=>swords.find(s=>s.name===name)).filter(Boolean);
+ $("inventoryCount").textContent=`보유한 검 ${items.length}종 · 현재 장착: ${sword.name}`;
+ $("inventoryItems").innerHTML=items.map(s=>{
+  const equipped=sword.name===s.name;
+  return `<div class="item-card ${equipped?"equipped":""}">
+   <h4>${equipped?"✅ ":"⚔️ "}${s.name}</h4>
+   <div class="item-rarity">${s.rarity} 등급</div>
+   <p>공격력: <b>${s.power}</b></p>
+   ${equipped?'<button disabled>현재 장착 중</button>':`<button data-equip="${s.name}">이 검 장착하기</button>`}
+  </div>`;
+ }).join("");
+ document.querySelectorAll("[data-equip]").forEach(button=>{
+  button.onclick=()=>{
+   const selected=swords.find(s=>s.name===button.dataset.equip);
+   if(!selected)return;
+   sword=selected;
+   updateUI();
+   say("⚔️ "+sword.name+"을(를) 장착했습니다! 공격력 "+sword.power);
+  };
+ });
+}
+
+function openInventory(){
+ renderInventory();
+ $("inventoryOverlay").classList.add("open");
+}
+function closeInventory(){
+ $("inventoryOverlay").classList.remove("open");
 }
 
 function renderBossRecords(){
@@ -642,6 +700,11 @@ document.querySelectorAll("[data-dir]").forEach(b=>{
  ["pointerup","pointerleave","pointercancel"].forEach(ev=>
  b.addEventListener(ev,()=>keys[dir]=false));
 });
+
+$("inventoryButton").onclick=openInventory;
+$("closeInventory").onclick=closeInventory;
+$("inventoryOverlay").addEventListener("click",e=>{if(e.target.id==="inventoryOverlay")closeInventory();});
+document.addEventListener("keydown",e=>{if(e.key==="Escape")closeInventory();});
 
 $("attack").onclick=attack;
 $("capture").onclick=capture;
