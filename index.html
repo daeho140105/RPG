@@ -19,6 +19,9 @@ button:disabled{opacity:.4}
 #controls button{width:65px;height:52px;font-size:20px;touch-action:none}
 #controls .action{width:100px;font-size:14px}
 #dex{font-size:14px;line-height:2}
+#stageButtons{display:flex;justify-content:center;gap:8px;flex-wrap:wrap}
+#stageButtons button.selected{background:#d69b32;color:#202638;outline:2px solid #ffe18b}
+#stageButtons button:disabled{opacity:.35;cursor:not-allowed}
 small{color:#c6d1e1}
 .gacha-layout{display:flex;justify-content:center;align-items:stretch;gap:12px;max-width:800px;margin:12px auto;padding:0 8px}
 .gacha-layout .panel{flex:1;margin:0;min-width:0}
@@ -131,6 +134,13 @@ button {
 </div>
 </div>
 
+<div class="panel" id="stagePanel">
+ <h3>🗺️ 스테이지 선택</h3>
+ <p id="stageInfo">현재 스테이지: 초록 숲</p>
+ <div id="stageButtons"></div>
+ <small>레벨을 올리면 새로운 스테이지가 열립니다. 전투 중에는 스테이지를 바꿀 수 없습니다.</small>
+</div>
+
 <div class="gacha-layout">
  <div class="panel gacha-machine">
   <h3>🎰 검 뽑기 기계</h3>
@@ -174,6 +184,7 @@ let owned=[];
 let caught=[];
 let keys={};
 let monster=null;
+let currentStage=0;
 let attackTimer=0;
 let invincible=0;
 let message="숲을 탐험해 몬스터를 찾아보세요!";
@@ -203,7 +214,19 @@ const species=[
  {name:"불꽃 여우",emoji:"🦊",hp:65,level:2},
  {name:"숲의 정령",emoji:"🌳",hp:90,level:3},
  {name:"아이스 드래곤",emoji:"🐉",hp:150,level:5},
- {name:"어둠의 군주",emoji:"👹",hp:220,level:8}
+ {name:"어둠의 군주",emoji:"👹",hp:220,level:8},
+ {name:"바위 골렘",emoji:"🗿",hp:130,level:4},
+ {name:"번개 독수리",emoji:"🦅",hp:190,level:6},
+ {name:"얼음 늑대",emoji:"🐺",hp:260,level:9},
+ {name:"용암 거인",emoji:"🌋",hp:360,level:12},
+ {name:"별빛 수호자",emoji:"🌟",hp:500,level:15}
+];
+
+const stages=[
+ {name:"초록 숲",emoji:"🌲",unlock:1,background:"#79b65d",monsters:["슬라임","숲의 정령","바위 골렘"]},
+ {name:"불타는 화산",emoji:"🌋",unlock:4,background:"#a94e36",monsters:["불꽃 여우","용암 거인"]},
+ {name:"얼음 동굴",emoji:"❄️",unlock:7,background:"#6da9c9",monsters:["얼음 늑대","아이스 드래곤"]},
+ {name:"번개의 성역",emoji:"⚡",unlock:10,background:"#6e65a8",monsters:["번개 독수리","어둠의 군주","별빛 수호자"]}
 ];
 
 function say(t){message=t;$("status").textContent=t;}
@@ -225,8 +248,26 @@ function updateUI(){
  "아직 포획한 몬스터가 없습니다.";
 }
 
+function renderStages(){
+ $("stageInfo").textContent="현재 스테이지: "+stages[currentStage].emoji+" "+stages[currentStage].name;
+ $("stageButtons").innerHTML=stages.map((stage,i)=>{
+  const locked=level<stage.unlock;
+  return `<button data-stage="${i}" class="${i===currentStage?"selected":""}" ${locked?"disabled":""}>${stage.emoji} ${stage.name}${locked?` (레벨 ${stage.unlock} 필요)`:""}</button>`;
+ }).join("");
+ document.querySelectorAll("[data-stage]").forEach(button=>{
+  button.onclick=()=>{
+   if(monster&&monster.alive){say("전투가 끝난 뒤 스테이지를 바꿀 수 있습니다!");return;}
+   currentStage=Number(button.dataset.stage);
+   renderStages();
+   say(stages[currentStage].name+" 스테이지로 이동했습니다!");
+  };
+ });
+}
+
 function spawnMonster(){
- let pool=species.filter(s=>s.level<=level+2);
+ let stage=stages[currentStage];
+ let pool=species.filter(s=>stage.monsters.includes(s.name));
+ if(!pool.length){say("이 스테이지의 몬스터를 만나려면 레벨을 더 올려야 합니다!");return;}
  let s=pool[Math.floor(Math.random()*pool.length)];
  monster={
   ...s,
@@ -241,7 +282,7 @@ function spawnMonster(){
 }
 
 function drawBackground(){
- ctx.fillStyle="#79b65d";
+ ctx.fillStyle=stages[currentStage].background;
  ctx.fillRect(0,0,800,480);
 
  ctx.fillStyle="#92c96b";
@@ -403,6 +444,7 @@ function checkLevel(){
   hp=100;
   say("🎉 레벨 업! 현재 레벨 "+level);
  }
+ renderStages();
 }
 
 function capture(){
@@ -540,7 +582,7 @@ $("reset").onclick=()=>{
 };
 
 function saveGame(){
- const data={coins,level,xp,hp,sword,owned,caught};
+ const data={coins,level,xp,hp,sword,owned,caught,currentStage};
  localStorage.setItem("swordCollectorSave",JSON.stringify(data));
  say("💾 게임을 저장했습니다!");
 }
@@ -556,10 +598,13 @@ function loadGame(){
   sword=d.sword??sword;
   owned=d.owned??[];
   caught=d.caught??[];
+  currentStage=Math.min(d.currentStage??0,stages.length-1);
+  if(level<stages[currentStage].unlock)currentStage=0;
  }catch(e){console.log("저장 데이터 불러오기 실패");}
 }
 
 loadGame();
+renderStages();
 renderProbabilityTable();
 updateUI();
 requestAnimationFrame(loop);
