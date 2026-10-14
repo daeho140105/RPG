@@ -102,7 +102,7 @@ button {
 }
 
 
-</style>
+#dex{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:10px;text-align:left;line-height:1.5}.dex-card{background:#1b2638;border:1px solid #46546d;border-radius:10px;padding:10px;min-width:0}.dex-card .dex-emoji{font-size:30px;text-align:center}.dex-card h4{margin:5px 0;text-align:center}.dex-card p{margin:4px 0;font-size:13px}.dex-card.locked{opacity:.65;text-align:center}#bossChallenge{background:#a83232}</style>
 </head>
 <body>
 <header>
@@ -137,7 +137,7 @@ button {
 <div class="panel" id="stagePanel">
  <h3>🗺️ 스테이지 선택</h3>
  <p id="stageInfo">현재 스테이지: 초록 숲</p>
- <div id="stageButtons"></div>
+ <div id="stageButtons"></div><button id="bossChallenge">👑 이 스테이지 보스 도전</button>
  <small>레벨을 올리면 새로운 스테이지가 열립니다. 전투 중에는 스테이지를 바꿀 수 없습니다.</small>
 </div>
 
@@ -159,7 +159,7 @@ button {
 
 <div class="panel">
 <h3>📖 몬스터 도감</h3>
-<p id="dex">아직 포획한 몬스터가 없습니다.</p>
+<p id="dexSummary">발견한 몬스터 0 / 14</p><div id="dex">도감을 불러오는 중...</div>
 </div>
 
 <div class="panel">
@@ -182,6 +182,7 @@ let coins=100,level=1,xp=0,hp=100;
 let sword={name:"나무검",power:10};
 let owned=[];
 let caught=[];
+let defeatedBosses=[];
 let keys={};
 let monster=null;
 let currentStage=0;
@@ -210,16 +211,23 @@ const swords=[
 ];
 
 const species=[
- {name:"슬라임",emoji:"🟢",hp:40,level:1},
- {name:"불꽃 여우",emoji:"🦊",hp:65,level:2},
- {name:"숲의 정령",emoji:"🌳",hp:90,level:3},
- {name:"아이스 드래곤",emoji:"🐉",hp:150,level:5},
- {name:"어둠의 군주",emoji:"👹",hp:220,level:8},
- {name:"바위 골렘",emoji:"🗿",hp:130,level:4},
- {name:"번개 독수리",emoji:"🦅",hp:190,level:6},
- {name:"얼음 늑대",emoji:"🐺",hp:260,level:9},
- {name:"용암 거인",emoji:"🌋",hp:360,level:12},
- {name:"별빛 수호자",emoji:"🌟",hp:500,level:15}
+ {name:"슬라임",emoji:"🟢",hp:40,attack:5,level:1,stage:0},
+ {name:"불꽃 여우",emoji:"🦊",hp:65,attack:9,level:2,stage:1},
+ {name:"숲의 정령",emoji:"🌳",hp:90,attack:12,level:3,stage:0},
+ {name:"아이스 드래곤",emoji:"🐉",hp:150,attack:20,level:5,stage:2},
+ {name:"어둠의 군주",emoji:"👹",hp:220,attack:27,level:8,stage:3},
+ {name:"바위 골렘",emoji:"🗿",hp:130,attack:16,level:4,stage:0},
+ {name:"번개 독수리",emoji:"🦅",hp:190,attack:24,level:6,stage:3},
+ {name:"얼음 늑대",emoji:"🐺",hp:260,attack:32,level:9,stage:2},
+ {name:"용암 거인",emoji:"🌋",hp:360,attack:42,level:12,stage:1},
+ {name:"별빛 수호자",emoji:"🌟",hp:500,attack:55,level:15,stage:3}
+];
+
+const bosses=[
+ {name:"숲의 수호자",emoji:"🌲",hp:350,attack:18,level:5,stage:0,reward:150},
+ {name:"화염 드래곤",emoji:"🐲",hp:650,attack:30,level:8,stage:1,reward:300},
+ {name:"아이스 킹",emoji:"👑",hp:1000,attack:45,level:12,stage:2,reward:500},
+ {name:"천공의 지배자",emoji:"⚡",hp:1600,attack:65,level:18,stage:3,reward:1000}
 ];
 
 const stages=[
@@ -238,14 +246,19 @@ function renderProbabilityTable(){
 }
 
 function updateUI(){
- $("coins").textContent=coins;
- $("level").textContent=level;
- $("hp").textContent=Math.max(0,Math.floor(hp));
- $("sword").textContent=sword.name;
+ $("coins").textContent=coins;$("level").textContent=level;
+ $("hp").textContent=Math.max(0,Math.floor(hp));$("sword").textContent=sword.name;
  $("drawResult").textContent="현재 장착 검: "+sword.name+" (힘 "+sword.power+")";
- $("dex").textContent=caught.length?
- caught.map(n=>" "+n).join(" / "):
- "아직 포획한 몬스터가 없습니다.";
+ renderDex();
+}
+
+function renderDex(){
+ const cards=[...species.map(m=>({...m,boss:false,found:caught.includes(m.name)})),
+ ...bosses.map(m=>({...m,boss:true,found:defeatedBosses.includes(m.name)}))];
+ $("dexSummary").textContent=`발견한 몬스터 ${cards.filter(m=>m.found).length} / ${cards.length}`;
+ $("dex").innerHTML=cards.map(m=>m.found?
+ `<div class="dex-card"><div class="dex-emoji">${m.emoji}</div><h4>${m.boss?"👑 ":""}${m.name}</h4><p>📍 출현: ${stages[m.stage].name}${m.boss?" (보스)":""}</p><p>⚔️ 공격력: ${m.attack}</p><p>❤️ 체력: ${m.hp}</p></div>`:
+ `<div class="dex-card locked"><div class="dex-emoji">❔</div><h4>???</h4><p>아직 발견하지 못했습니다.</p></div>`).join("");
 }
 
 function renderStages(){
@@ -262,6 +275,9 @@ function renderStages(){
    say(stages[currentStage].name+" 스테이지로 이동했습니다!");
   };
  });
+ const bb=$("bossChallenge");
+ bb.textContent=defeatedBosses.includes(bosses[currentStage].name)?"👑 보스 재도전 (보상 없음)":"👑 "+bosses[currentStage].name+" 도전";
+ bb.disabled=!!(monster&&monster.alive);
 }
 
 function spawnMonster(){
@@ -279,6 +295,15 @@ function spawnMonster(){
   attackWait:0
  };
  say(monster.name+"이(가) 나타났다!");
+  renderStages();
+}
+
+function spawnBoss(){
+ if(monster&&monster.alive){say("전투가 끝난 뒤 보스에게 도전할 수 있습니다!");return;}
+ const b=bosses[currentStage];
+ monster={...b,x:player.x>400?180:620,y:240,maxHp:b.hp,hp:b.hp,alive:true,attackWait:0,boss:true};
+ say("⚠️ 보스 "+b.name+" 등장! 준비해!");
+ renderStages();
 }
 
 function drawBackground(){
@@ -429,10 +454,12 @@ function attack(){
  if(monster.hp<=0){
   monster.hp=0;
   monster.alive=false;
-  coins+=10+monster.level*5;
-  xp+=20+monster.level*10;
-  say(monster.name+"을(를) 쓰러뜨렸다! 코인과 경험치 획득!");
-  checkLevel();
+  if(monster.boss){
+   const firstClear=!defeatedBosses.includes(monster.name);
+   if(firstClear){defeatedBosses.push(monster.name);coins+=monster.reward;xp+=monster.level*30;say("🏆 보스 "+monster.name+" 격파! "+monster.reward+"코인 특별 보상!");}
+   else{coins+=Math.floor(monster.reward/5);xp+=monster.level*10;say("보스 재격파! 추가 코인을 획득했습니다.");}
+  }else{coins+=10+monster.level*5;xp+=20+monster.level*10;say(monster.name+"을(를) 쓰러뜨렸다! 코인과 경험치 획득!");}
+  checkLevel();renderStages();
  }
  updateUI();
 }
@@ -516,7 +543,7 @@ function update(dt){
    hp-=8;
    invincible=.8;
    monster.attackWait=1.2;
-   say(monster.name+"에게 공격받았다!");
+   say(monster.name+"에게 "+(monster.attack||8)+"의 피해를 받았다!");
    if(hp<=0){
     hp=100;
     player.x=400;player.y=250;
@@ -559,6 +586,7 @@ document.querySelectorAll("[data-dir]").forEach(b=>{
 $("attack").onclick=attack;
 $("capture").onclick=capture;
 $("draw").onclick=drawSword;
+$("bossChallenge").onclick=spawnBoss;
 $("explore").onclick=()=>{
  if(monster&&monster.alive){
   say("이미 몬스터와 전투 중입니다!");
@@ -582,7 +610,7 @@ $("reset").onclick=()=>{
 };
 
 function saveGame(){
- const data={coins,level,xp,hp,sword,owned,caught,currentStage};
+ const data={coins,level,xp,hp,sword,owned,caught,defeatedBosses,currentStage};
  localStorage.setItem("swordCollectorSave",JSON.stringify(data));
  say("💾 게임을 저장했습니다!");
 }
@@ -598,6 +626,7 @@ function loadGame(){
   sword=d.sword??sword;
   owned=d.owned??[];
   caught=d.caught??[];
+   defeatedBosses=d.defeatedBosses??[];
   currentStage=Math.min(d.currentStage??0,stages.length-1);
   if(level<stages[currentStage].unlock)currentStage=0;
  }catch(e){console.log("저장 데이터 불러오기 실패");}
