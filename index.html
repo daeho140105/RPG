@@ -102,7 +102,18 @@ button {
 }
 
 
-#dex{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:10px;text-align:left;line-height:1.5}.dex-card{background:#1b2638;border:1px solid #46546d;border-radius:10px;padding:10px;min-width:0}.dex-card .dex-emoji{font-size:30px;text-align:center}.dex-card h4{margin:5px 0;text-align:center}.dex-card p{margin:4px 0;font-size:13px}.dex-card.locked{opacity:.65;text-align:center}#bossChallenge{background:#a83232}</style>
+#dex{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:10px;text-align:left;line-height:1.5}.dex-card{background:#1b2638;border:1px solid #46546d;border-radius:10px;padding:10px;min-width:0}.dex-card .dex-emoji{font-size:30px;text-align:center}.dex-card h4{margin:5px 0;text-align:center}.dex-card p{margin:4px 0;font-size:13px}.dex-card.locked{opacity:.65;text-align:center}#bossChallenge{background:#a83232}
+#bossIntro{display:none;position:fixed;inset:0;z-index:20;background:rgba(5,8,18,.88);align-items:center;justify-content:center;flex-direction:column;gap:12px;pointer-events:none}
+#bossIntro.show{display:flex;animation:bossFlash 1.8s ease both}
+#bossIntro .boss-icon{font-size:76px;filter:drop-shadow(0 0 18px #ffb347)}
+#bossIntro strong{font-size:clamp(28px,7vw,54px);color:#ffd36a;text-shadow:0 3px 12px #b32626}
+#bossIntro span{font-size:18px;color:#fff}
+@keyframes bossFlash{0%{opacity:0}15%,75%{opacity:1}100%{opacity:0}}
+.boss-hint{color:#ffcf73;font-size:13px}
+#bossRecords{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.boss-record{background:#1b2638;padding:8px 12px;border-radius:8px;border:1px solid #46546d}
+.boss-record.cleared{border-color:#e8bd58;color:#ffdc83}
+</style>
 </head>
 <body>
 <header>
@@ -119,6 +130,7 @@ button {
 
 <canvas id="game" width="800" height="480"></canvas>
 <div id="status">숲을 탐험해 몬스터를 찾아보세요!</div>
+<div id="bossIntro" aria-live="assertive"><div class="boss-icon" id="bossIntroEmoji">👑</div><strong id="bossIntroName">보스 등장!</strong><span>강력한 보스가 나타났다!</span></div>
 
 <div id="controls">
 <div>
@@ -163,6 +175,10 @@ button {
 </div>
 
 <div class="panel">
+<h3>🏆 보스 처치 기록</h3><div id="bossRecords"></div><p class="boss-hint">보스를 처음 처치하면 전설의 검을 획득합니다!</p>
+</div>
+
+<div class="panel">
 <h3>📜 게임 안내</h3>
 <p>PC: 방향키 또는 WASD로 이동, 스페이스바로 공격</p>
 <p>스마트폰: 화면 아래 방향키와 공격 버튼 사용</p>
@@ -183,6 +199,7 @@ let sword={name:"나무검",power:10};
 let owned=[];
 let caught=[];
 let defeatedBosses=[];
+let bossIntroTimer=0;
 let keys={};
 let monster=null;
 let currentStage=0;
@@ -224,10 +241,10 @@ const species=[
 ];
 
 const bosses=[
- {name:"숲의 수호자",emoji:"🌲",hp:350,attack:18,level:5,stage:0,reward:150},
- {name:"화염 드래곤",emoji:"🐲",hp:650,attack:30,level:8,stage:1,reward:300},
- {name:"아이스 킹",emoji:"👑",hp:1000,attack:45,level:12,stage:2,reward:500},
- {name:"천공의 지배자",emoji:"⚡",hp:1600,attack:65,level:18,stage:3,reward:1000}
+ {name:"숲의 수호자",emoji:"🌲",hp:350,attack:18,level:5,stage:0,reward:150,skill:"뿌리 강타",rewardSword:"강철검"},
+ {name:"화염 드래곤",emoji:"🐲",hp:650,attack:30,level:8,stage:1,reward:300,skill:"화염 폭발",rewardSword:"화염검"},
+ {name:"아이스 킹",emoji:"👑",hp:1000,attack:45,level:12,stage:2,reward:500,skill:"빙결 파동",rewardSword:"드래곤 슬레이어"},
+ {name:"천공의 지배자",emoji:"⚡",hp:1600,attack:65,level:18,stage:3,reward:1000,skill:"천공 낙뢰",rewardSword:"성검 엑스칼리버"}
 ];
 
 const stages=[
@@ -250,6 +267,14 @@ function updateUI(){
  $("hp").textContent=Math.max(0,Math.floor(hp));$("sword").textContent=sword.name;
  $("drawResult").textContent="현재 장착 검: "+sword.name+" (힘 "+sword.power+")";
  renderDex();
+ renderBossRecords();
+}
+
+function renderBossRecords(){
+ $("bossRecords").innerHTML=bosses.map(b=>{
+  const cleared=defeatedBosses.includes(b.name);
+  return `<span class="boss-record ${cleared?"cleared":""}">${cleared?"🏆":"🔒"} ${b.name} ${cleared?"처치 완료":"미처치"}</span>`;
+ }).join("");
 }
 
 function renderDex(){
@@ -298,11 +323,22 @@ function spawnMonster(){
   renderStages();
 }
 
+function showBossIntro(b){
+ const overlay=$("bossIntro");
+ $("bossIntroEmoji").textContent=b.emoji;
+ $("bossIntroName").textContent=b.name+" 등장!";
+ overlay.classList.remove("show");
+ void overlay.offsetWidth;
+ overlay.classList.add("show");
+ bossIntroTimer=1.8;
+}
+
 function spawnBoss(){
  if(monster&&monster.alive){say("전투가 끝난 뒤 보스에게 도전할 수 있습니다!");return;}
  const b=bosses[currentStage];
- monster={...b,x:player.x>400?180:620,y:240,maxHp:b.hp,hp:b.hp,alive:true,attackWait:0,boss:true};
- say("⚠️ 보스 "+b.name+" 등장! 준비해!");
+ monster={...b,x:player.x>400?180:620,y:240,maxHp:b.hp,hp:b.hp,alive:true,attackWait:1.5,boss:true,skillWait:4,skillWarning:0};
+ showBossIntro(b);
+ say("⚠️ 보스 "+b.name+" 등장! 조심해!");
  renderStages();
 }
 
@@ -364,7 +400,8 @@ function render(){
  drawBackground();
 
  if(monster&&monster.alive){
-  drawCharacter(monster.x,monster.y,monster.emoji,35);
+  drawCharacter(monster.x,monster.y,monster.emoji,monster.boss?58:35);
+  if(monster.boss&&monster.skillWarning>0){ctx.fillStyle="#ffeb75";ctx.font="bold 16px Arial";ctx.textAlign="center";ctx.fillText("⚠ "+monster.skill+"!",monster.x,monster.y-58);}
   ctx.fillStyle="white";
   ctx.font="13px Arial";
   ctx.textAlign="center";
@@ -456,7 +493,7 @@ function attack(){
   monster.alive=false;
   if(monster.boss){
    const firstClear=!defeatedBosses.includes(monster.name);
-   if(firstClear){defeatedBosses.push(monster.name);coins+=monster.reward;xp+=monster.level*30;say("🏆 보스 "+monster.name+" 격파! "+monster.reward+"코인 특별 보상!");}
+   if(firstClear){defeatedBosses.push(monster.name);coins+=monster.reward;xp+=monster.level*30;const prize=swords.find(s=>s.name===monster.rewardSword);if(prize){if(!owned.includes(prize.name))owned.push(prize.name);if(prize.power>sword.power)sword=prize;say("🏆 보스 "+monster.name+" 격파! "+monster.reward+"코인과 보상 검 "+prize.name+" 획득!");}else{say("🏆 보스 "+monster.name+" 격파! "+monster.reward+"코인 특별 보상!");}}
    else{coins+=Math.floor(monster.reward/5);xp+=monster.level*10;say("보스 재격파! 추가 코인을 획득했습니다.");}
   }else{coins+=10+monster.level*5;xp+=20+monster.level*10;say(monster.name+"을(를) 쓰러뜨렸다! 코인과 경험치 획득!");}
   checkLevel();renderStages();
@@ -540,10 +577,11 @@ function update(dt){
    monster.x+=dx/d*45*dt;
    monster.y+=dy/d*45*dt;
   }else if(monster.attackWait<=0&&invincible<=0){
-   hp-=8;
+   const incoming=monster.attack||8;
+   hp-=incoming;
    invincible=.8;
    monster.attackWait=1.2;
-   say(monster.name+"에게 "+(monster.attack||8)+"의 피해를 받았다!");
+   say(monster.name+"에게 "+incoming+"의 피해를 받았다!");
    if(hp<=0){
     hp=100;
     player.x=400;player.y=250;
@@ -553,7 +591,29 @@ function update(dt){
    updateUI();
   }
   monster.attackWait-=dt;
+  if(monster.boss){
+   monster.skillWait-=dt;
+   if(monster.skillWait<=0&&monster.skillWarning<=0){
+    monster.skillWarning=1.0;
+    monster.skillWait=5.5;
+    say("⚠️ "+monster.name+"의 "+monster.skill+" 준비! 멀리 피하세요!");
+   }
+   if(monster.skillWarning>0){
+    monster.skillWarning-=dt;
+    if(monster.skillWarning<=0){
+     const skillDistance=Math.hypot(player.x-monster.x,player.y-monster.y);
+     if(skillDistance<165&&invincible<=0){
+      const damage=Math.ceil(monster.attack*1.6);
+      hp-=damage;invincible=1.0;
+      say("💥 "+monster.skill+" 적중! "+damage+" 피해!");
+      if(hp<=0){hp=100;player.x=400;player.y=250;coins=Math.max(0,coins-10);say("기절했다! 코인 10개를 잃었습니다.");}
+      updateUI();
+     }else{say("멋지게 회피했다! "+monster.skill+"을 피했습니다.");}
+    }
+   }
+  }
  }
+ if(bossIntroTimer>0){bossIntroTimer-=dt;if(bossIntroTimer<=0){$("bossIntro").classList.remove("show");}}
 }
 
 function loop(time){
