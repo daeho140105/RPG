@@ -127,6 +127,7 @@ button {
 .item-card button{width:100%;margin:8px 0 0}
 .item-rarity{font-size:12px;color:#ffdc83}
 #inventoryCount{color:#c6d1e1;font-size:13px}
+.upgrade-info{color:#ffdc83;font-size:13px}.skill-zone{animation:skillPulse .55s ease-in-out infinite alternate}@keyframes skillPulse{to{opacity:.35}}
 
 /* 브롤스타즈 느낌의 가로형 전투 화면 */
 body{min-height:100vh;overflow-x:hidden}
@@ -184,14 +185,14 @@ h1{font-size:clamp(18px,3vw,25px)}
    <div><h2 id="inventoryTitle">🎒 검 인벤토리</h2><div id="inventoryCount">보유한 검 0종</div></div>
    <button id="closeInventory" aria-label="인벤토리 닫기">✖ 닫기</button>
   </div>
-  <p>보유한 검을 확인하고 장착할 수 있어. 보스에게서 받은 보상 검도 여기에 표시돼!</p>
+  <p>보유한 검을 장착하거나 같은 검을 재료로 강화할 수 있어. 강화 재료는 +1부터 3개, 이후 단계마다 2개씩 늘어나!</p>
   <div id="inventoryItems"></div>
  </div>
 </div>
 
 <div id="utilityControls">
  <button class="action" id="capture">🪄 포획</button>
- <button class="action" id="explore">🌲 탐험</button>
+ <button class="action" id="explore">🌲 탐험 시작</button><button class="action" id="leaveExplore" style="background:#a83232;display:none">🚪 탐험 나가기</button>
  <button class="action" id="specialAttack" disabled title="특수 공격은 다음 업데이트에서 추가됩니다">⭐ 특수 공격</button>
 </div>
 
@@ -205,8 +206,8 @@ h1{font-size:clamp(18px,3vw,25px)}
 <div class="gacha-layout">
  <div class="panel gacha-machine">
   <h3>🎰 검 뽑기 기계</h3>
-  <p>10코인으로 랜덤 검을 뽑으세요!</p>
-  <button id="draw">검 뽑기 (10코인)</button>
+  <p>100코인으로 랜덤 검을 뽑으세요!</p>
+  <button id="draw">검 뽑기 (100코인)</button>
   <p id="drawResult">현재 장착 검: 나무검</p>
  </div>
  <div class="panel">
@@ -224,7 +225,7 @@ h1{font-size:clamp(18px,3vw,25px)}
 </div>
 
 <div class="panel">
-<h3>🏆 보스 처치 기록</h3><div id="bossRecords"></div><p class="boss-hint">보스를 처음 처치하면 전설의 검을 획득합니다!</p>
+<h3>🏆 보스 처치 기록</h3><div id="bossRecords"></div><p class="boss-hint">보스를 처음 처치하면 뽑기로 얻을 수 없는 보스 전용 검을 획득합니다!</p>
 </div>
 
 <div class="panel">
@@ -232,7 +233,7 @@ h1{font-size:clamp(18px,3vw,25px)}
 <p>PC: WASD 또는 방향키로 이동, 스페이스바로 공격 (화면 조이스틱은 마우스로 드래그)</p>
 <p>스마트폰: 가로 화면에서 왼쪽 조이스틱으로 이동, 오른쪽 조이스틱을 몬스터 방향으로 조준한 뒤 놓아 공격</p>
 <p>몬스터를 약하게 만든 뒤 포획 버튼을 누르세요!</p>
-<button id="heal">❤️ 체력 회복 (20코인)</button>
+<button id="heal">❤️ 체력 회복 (50코인)</button>
 <button id="save">💾 저장하기</button>
 <button id="reset">새 게임</button>
 </div>
@@ -257,6 +258,8 @@ let attackAngle=0, aimAngle=0, aimMagnitude=0, aimActive=false;
 let invincible=0;
 let message="숲을 탐험해 몬스터를 찾아보세요!";
 let lastTime=0;
+let exploring=false, exploreSpawnTimer=0;
+let upgrades={};
 
 const player={x:400,y:250,speed:190,face:1};
 const trees=[
@@ -266,7 +269,9 @@ const trees=[
 ];
 
 // 검의 공격력에 따라 사거리가 조금씩 증가합니다. 나무검 61, 천공의 검 110
-function getAttackRange(){return 60 + Math.max(0,Number(sword.power)||0)*0.1;}
+function getSwordLevel(){return upgrades[sword.name]||0;}
+function getSwordPower(){return Math.floor(sword.power*(1+getSwordLevel()*.18));}
+function getAttackRange(){return 58 + Math.max(0,Number(sword.power)||0)*0.075 + getSwordLevel()*2;}
 
 const swords=[
  {name:"나무검",power:10,chance:35,rarity:"일반",className:"common"},
@@ -277,7 +282,11 @@ const swords=[
  {name:"창조의 검",power:150,chance:2.5,rarity:"전설",className:"legendary"},
  {name:"성검 엑스칼리버",power:220,chance:1,rarity:"전설",className:"legendary"},
  {name:"공허의 검",power:350,chance:0.4,rarity:"신화",className:"mythic"},
- {name:"천공의 검",power:500,chance:0.1,rarity:"신화",className:"mythic"}
+ {name:"천공의 검",power:500,chance:0.1,rarity:"신화",className:"mythic"},
+ {name:"수호자의 뿌리검",power:85,chance:0,rarity:"보스 전용",className:"epic",bossOnly:true},
+ {name:"홍염의 심판",power:190,chance:0,rarity:"보스 전용",className:"legendary",bossOnly:true},
+ {name:"빙결의 왕검",power:300,chance:0,rarity:"보스 전용",className:"legendary",bossOnly:true},
+ {name:"천공의 파멸검",power:460,chance:0,rarity:"보스 전용",className:"mythic",bossOnly:true}
 ];
 
 const species=[
@@ -294,10 +303,10 @@ const species=[
 ];
 
 const bosses=[
- {name:"숲의 수호자",emoji:"🌲",hp:350,attack:18,level:5,stage:0,reward:150,skill:"뿌리 강타",rewardSword:"강철검"},
- {name:"화염 드래곤",emoji:"🐲",hp:650,attack:30,level:8,stage:1,reward:300,skill:"화염 폭발",rewardSword:"화염검"},
- {name:"아이스 킹",emoji:"👑",hp:1000,attack:45,level:12,stage:2,reward:500,skill:"빙결 파동",rewardSword:"드래곤 슬레이어"},
- {name:"천공의 지배자",emoji:"⚡",hp:1600,attack:65,level:18,stage:3,reward:1000,skill:"천공 낙뢰",rewardSword:"성검 엑스칼리버"}
+ {name:"숲의 수호자",emoji:"🌲",hp:350,attack:18,level:5,stage:0,reward:150,skill:"뿌리 강타",rewardSword:"수호자의 뿌리검"},
+ {name:"화염 드래곤",emoji:"🐲",hp:650,attack:30,level:8,stage:1,reward:300,skill:"화염 폭발",rewardSword:"홍염의 심판"},
+ {name:"아이스 킹",emoji:"👑",hp:1000,attack:45,level:12,stage:2,reward:500,skill:"빙결 파동",rewardSword:"빙결의 왕검"},
+ {name:"천공의 지배자",emoji:"⚡",hp:1600,attack:65,level:18,stage:3,reward:1000,skill:"천공 낙뢰",rewardSword:"천공의 파멸검"}
 ];
 
 const stages=[
@@ -310,15 +319,17 @@ const stages=[
 function say(t){message=t;$("status").textContent=t;}
 
 function renderProbabilityTable(){
- $("probabilityRows").innerHTML=swords.map(s=>
+ $("probabilityRows").innerHTML=swords.filter(s=>!s.bossOnly).map(s=>
   `<tr><td>${s.name}</td><td class="rarity-${s.className}">${s.rarity}</td><td>${s.chance}%</td></tr>`
  ).join("");
 }
 
 function updateUI(){
+ $("leaveExplore").style.display=exploring?"inline-block":"none";
+ $("explore").textContent=exploring?"🌲 탐험 중...":"🌲 탐험 시작";
  $("coins").textContent=coins;$("level").textContent=level;
  $("hp").textContent=Math.max(0,Math.floor(hp));$("sword").textContent=sword.name;
- $("drawResult").textContent="현재 장착 검: "+sword.name+" (힘 "+sword.power+")";
+ $("drawResult").textContent="현재 장착 검: "+sword.name+" (힘 "+getSwordPower()+")";
  renderDex();
  renderBossRecords();
  if($("inventoryOverlay").classList.contains("open"))renderInventory();
@@ -329,22 +340,25 @@ function renderInventory(){
  const items=uniqueNames.map(name=>swords.find(s=>s.name===name)).filter(Boolean);
  $("inventoryCount").textContent=`보유한 검 ${items.length}종 · 현재 장착: ${sword.name}`;
  $("inventoryItems").innerHTML=items.map(s=>{
-  const equipped=sword.name===s.name;
+  const equipped=sword.name===s.name, count=s.name==="나무검"?Infinity:owned.filter(n=>n===s.name).length;
+  const lv=upgrades[s.name]||0, needed=3+Math.max(0,lv)*2;
   return `<div class="item-card ${equipped?"equipped":""}">
-   <h4>${equipped?"✅ ":"⚔️ "}${s.name}</h4>
-   <div class="item-rarity">${s.rarity} 등급</div>
-   <p>공격력: <b>${s.power}</b></p>
+   <h4>${equipped?"✅ ":"⚔️ "}${s.name}</h4><div class="item-rarity">${s.rarity} 등급 · 강화 +${lv}</div>
+   <p>공격력: <b>${Math.floor(s.power*(1+lv*.18))}</b></p>
+   <p>보유 수량: ${s.name==="나무검"?"기본 지급":count+"개"}</p>
    ${equipped?'<button disabled>현재 장착 중</button>':`<button data-equip="${s.name}">이 검 장착하기</button>`}
+   ${s.name==="나무검"?'<button disabled>기본 검은 강화할 수 없음</button>':`<button data-upgrade="${s.name}" ${count<needed?"disabled":""}>강화 재료 ${needed}개 사용 (+${lv+1})</button>`}
   </div>`;
  }).join("");
- document.querySelectorAll("[data-equip]").forEach(button=>{
-  button.onclick=()=>{
-   const selected=swords.find(s=>s.name===button.dataset.equip);
-   if(!selected)return;
-   sword=selected;
-   updateUI();
-   say("⚔️ "+sword.name+"을(를) 장착했습니다! 공격력 "+sword.power);
-  };
+ document.querySelectorAll("[data-equip]").forEach(button=>button.onclick=()=>{
+  const selected=swords.find(s=>s.name===button.dataset.equip);if(!selected)return;
+  sword=selected;updateUI();saveGame(true);say("⚔️ "+sword.name+" 장착!");
+ });
+ document.querySelectorAll("[data-upgrade]").forEach(button=>button.onclick=()=>{
+  const name=button.dataset.upgrade,lv=upgrades[name]||0,needed=3+lv*2;
+  const count=owned.filter(n=>n===name).length;if(count<needed)return;
+  let remove=needed;owned=owned.filter(n=>{if(n===name&&remove>0){remove--;return false;}return true;});
+  upgrades[name]=lv+1;updateUI();saveGame(true);say(`✨ ${name} 강화 성공! +${lv+1} (공격력 18% 증가)`);
  });
 }
 
@@ -380,7 +394,7 @@ function renderStages(){
  }).join("");
  document.querySelectorAll("[data-stage]").forEach(button=>{
   button.onclick=()=>{
-   if(monster&&monster.alive){say("전투가 끝난 뒤 스테이지를 바꿀 수 있습니다!");return;}
+   if(exploring||(monster&&monster.alive)){say("탐험을 종료한 뒤 스테이지를 바꿀 수 있습니다!");return;}
    currentStage=Number(button.dataset.stage);
    renderStages();
    say(stages[currentStage].name+" 스테이지로 이동했습니다!");
@@ -420,6 +434,7 @@ function showBossIntro(b){
 }
 
 function spawnBoss(){
+ if(exploring){say("보스 도전 전에 탐험을 종료하세요!");return;}
  if(monster&&monster.alive){say("전투가 끝난 뒤 보스에게 도전할 수 있습니다!");return;}
  const b=bosses[currentStage];
  monster={...b,x:player.x>400?180:620,y:240,maxHp:b.hp,hp:b.hp,alive:true,attackWait:1.5,boss:true,skillWait:4,skillWarning:0};
@@ -487,7 +502,12 @@ function render(){
 
  if(monster&&monster.alive){
   drawCharacter(monster.x,monster.y,monster.emoji,monster.boss?58:35);
-  if(monster.boss&&monster.skillWarning>0){ctx.fillStyle="#ffeb75";ctx.font="bold 16px Arial";ctx.textAlign="center";ctx.fillText("⚠ "+monster.skill+"!",monster.x,monster.y-58);}
+  if(monster.boss&&monster.skillWarning>0){
+   const warnRadius=monster.skillRadius||155;
+   ctx.save();ctx.fillStyle="rgba(255,75,55,.16)";ctx.strokeStyle="rgba(255,220,120,.48)";ctx.lineWidth=3;ctx.setLineDash([9,7]);
+   ctx.beginPath();ctx.arc(monster.skillX??monster.x,monster.skillY??monster.y,warnRadius,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.setLineDash([]);
+   ctx.fillStyle="rgba(255,235,117,.85)";ctx.font="bold 16px Arial";ctx.textAlign="center";ctx.fillText("⚠ "+monster.skill+"!",monster.x,monster.y-58);ctx.restore();
+  }
   ctx.fillStyle="white";
   ctx.font="13px Arial";
   ctx.textAlign="center";
@@ -573,21 +593,22 @@ function attack(directionAngle=null){
   const allowance=distance>radius?Math.asin(Math.min(1,radius/distance)):Math.PI;
   const hit=distance-radius<=getAttackRange() && Math.abs(diff)<=Math.PI/3+allowance;
   if(hit){
-   monster.hp-=sword.power+level*2;
-   say(monster.name+"에게 "+(sword.power+level*2)+"의 피해!");
+   monster.hp-=getSwordPower()+level*2;
+   say(monster.name+"에게 "+(getSwordPower()+level*2)+"의 피해!");
   }else say("공격!");
  }else say("공격!");
  if(monster&&monster.alive&&monster.hp<=0){
   monster.hp=0;monster.alive=false;
+ if(exploring)exploreSpawnTimer=1;
  if(monster.hp<=0){
   monster.hp=0;
   monster.alive=false;
   if(monster.boss){
    const firstClear=!defeatedBosses.includes(monster.name);
-   if(firstClear){defeatedBosses.push(monster.name);coins+=monster.reward;xp+=monster.level*30;const prize=swords.find(s=>s.name===monster.rewardSword);if(prize){if(!owned.includes(prize.name))owned.push(prize.name);if(prize.power>sword.power)sword=prize;say("🏆 보스 "+monster.name+" 격파! "+monster.reward+"코인과 보상 검 "+prize.name+" 획득!");}else{say("🏆 보스 "+monster.name+" 격파! "+monster.reward+"코인 특별 보상!");}}
+   if(firstClear){defeatedBosses.push(monster.name);coins+=monster.reward;xp+=monster.level*30;const prize=swords.find(s=>s.name===monster.rewardSword);if(prize){owned.push(prize.name);if(prize.power>sword.power)sword=prize;say("🏆 보스 "+monster.name+" 격파! "+monster.reward+"코인과 보상 검 "+prize.name+" 획득!");}else{say("🏆 보스 "+monster.name+" 격파! "+monster.reward+"코인 특별 보상!");}}
    else{coins+=Math.floor(monster.reward/5);xp+=monster.level*10;say("보스 재격파! 추가 코인을 획득했습니다.");}
   }else{coins+=10+monster.level*5;xp+=20+monster.level*10;say(monster.name+"을(를) 쓰러뜨렸다! 코인과 경험치 획득!");}
-  checkLevel();renderStages();
+  checkLevel();renderStages();saveGame(true);
  }
  }
  updateUI();
@@ -628,7 +649,7 @@ function capture(){
   xp+=15;
   say("🎉 "+monster.name+" 포획 성공!");
   monster.alive=false;
-  checkLevel();
+  checkLevel();saveGame(true);
  }else{
   say("포획 실패! 조금 더 약하게 만들어 보세요.");
  }
@@ -636,17 +657,17 @@ function capture(){
 }
 
 function drawSword(){
- if(coins<10){say("코인이 부족합니다!");return;}
- coins-=10;
+ if(coins<100){say("코인이 부족합니다! 검 뽑기에는 100코인이 필요합니다.");return;}
+ coins-=100;
  const r=Math.random()*100;
  let total=0;
  let won=swords[swords.length-1];
- for(const s of swords){
+ for(const s of swords.filter(x=>!x.bossOnly)){
   total+=s.chance;
   if(r<total){won=s;break;}
  }
  sword=won;
- owned.push(won.name);
+ owned.push(won.name);saveGame(true);
  const result=$("drawResult");
  result.textContent=`🎉 ${won.rarity} 등급 ${won.name} 획득! (공격력 ${won.power})`;
  result.className=["legendary","mythic"].includes(won.className)?"special":"";
@@ -655,11 +676,24 @@ function drawSword(){
  result.textContent=`🎉 ${won.rarity} 등급 ${won.name} 획득! (공격력 ${won.power})`;
 }
 
+function handleDeath(){
+ // 사망 시 나무검만 남기고 모든 성장/수집/재화를 초기화
+ coins=0;level=1;xp=0;hp=100;sword=swords.find(s=>s.name==="나무검");
+ owned=[];caught=[];defeatedBosses=[];upgrades={};currentStage=0;
+ monster=null;exploring=false;exploreSpawnTimer=0;attackTimer=0;aimActive=false;
+ player.x=400;player.y=250;
+ updateUI();renderStages();saveGame(true);
+ say("💀 쓰러졌습니다! 나무검만 남고 코인·검·도감·강화·진행 기록을 모두 잃었습니다.");
+}
+
 function update(dt){
  move(dt);
  if(attackTimer>0)attackTimer-=dt;
  if(invincible>0)invincible-=dt;
 
+ if(exploring&&(!monster||!monster.alive)){
+  exploreSpawnTimer-=dt;if(exploreSpawnTimer<=0){spawnMonster();exploreSpawnTimer=1;}
+ }
  if(monster&&monster.alive){
   let dx=player.x-monster.x;
   let dy=player.y-monster.y;
@@ -674,31 +708,27 @@ function update(dt){
    invincible=.8;
    monster.attackWait=1.2;
    say(monster.name+"에게 "+incoming+"의 피해를 받았다!");
-   if(hp<=0){
-    hp=100;
-    player.x=400;player.y=250;
-    coins=Math.max(0,coins-10);
-    say("기절했다! 숲 입구에서 다시 시작합니다. 코인 10개를 잃었습니다.");
-   }
+   if(hp<=0){handleDeath();return;}
    updateUI();
   }
   monster.attackWait-=dt;
   if(monster.boss){
    monster.skillWait-=dt;
    if(monster.skillWait<=0&&monster.skillWarning<=0){
-    monster.skillWarning=1.0;
+    monster.skillWarning=1.6;
+    monster.skillX=player.x;monster.skillY=player.y;monster.skillRadius=monster.name==="천공의 지배자"?185:150;
     monster.skillWait=5.5;
     say("⚠️ "+monster.name+"의 "+monster.skill+" 준비! 멀리 피하세요!");
    }
    if(monster.skillWarning>0){
     monster.skillWarning-=dt;
     if(monster.skillWarning<=0){
-     const skillDistance=Math.hypot(player.x-monster.x,player.y-monster.y);
-     if(skillDistance<165&&invincible<=0){
+     const skillDistance=Math.hypot(player.x-monster.skillX,player.y-monster.skillY);
+     if(skillDistance<monster.skillRadius&&invincible<=0){
       const damage=Math.ceil(monster.attack*1.6);
       hp-=damage;invincible=1.0;
       say("💥 "+monster.skill+" 적중! "+damage+" 피해!");
-      if(hp<=0){hp=100;player.x=400;player.y=250;coins=Math.max(0,coins-10);say("기절했다! 코인 10개를 잃었습니다.");}
+      if(hp<=0){handleDeath();return;}
       updateUI();
      }else{say("멋지게 회피했다! "+monster.skill+"을 피했습니다.");}
     }
@@ -774,17 +804,20 @@ $("capture").onclick=capture;
 $("draw").onclick=drawSword;
 $("bossChallenge").onclick=spawnBoss;
 $("explore").onclick=()=>{
- if(monster&&monster.alive){
-  say("이미 몬스터와 전투 중입니다!");
-  return;
-   
- }
- spawnMonster();
+ if(exploring)return;
+ exploring=true;exploreSpawnTimer=0;
+ if(!monster||!monster.alive)spawnMonster();
+ updateUI();say("🌲 연속 탐험 시작! 나가기 버튼을 누르면 종료됩니다.");saveGame(true);
+};
+$("leaveExplore").onclick=()=>{
+ exploring=false;exploreSpawnTimer=0;
+ if(monster&&monster.alive){monster=null;}
+ updateUI();say("탐험을 종료했습니다.");saveGame(true);
 };
 $("heal").onclick=()=>{
- if(coins<20){say("코인이 부족합니다!");return;}
+ if(coins<50){say("코인이 부족합니다! 회복에는 50코인이 필요합니다.");return;}
  if(hp>=100){say("체력이 이미 가득 찼습니다!");return;}
- coins-=20;hp=100;updateUI();say("체력을 모두 회복했습니다!");
+ coins-=50;hp=100;updateUI();saveGame(true);say("체력을 모두 회복했습니다!");
 };
 
 $("save").onclick=saveGame;
@@ -796,10 +829,10 @@ $("reset").onclick=()=>{
  }
 };
 
-function saveGame(){
- const data={coins,level,xp,hp,sword,owned,caught,defeatedBosses,currentStage};
+function saveGame(silent=false){
+ const data={coins,level,xp,hp,sword,owned,caught,defeatedBosses,currentStage,upgrades};
  localStorage.setItem("swordCollectorSave",JSON.stringify(data));
- say("💾 게임을 저장했습니다!");
+ if(!silent)say("💾 게임을 저장했습니다!");
 }
 
 function loadGame(){
@@ -814,6 +847,7 @@ function loadGame(){
   owned=d.owned??[];
   caught=d.caught??[];
    defeatedBosses=d.defeatedBosses??[];
+  upgrades=d.upgrades??{};
   currentStage=Math.min(d.currentStage??0,stages.length-1);
   if(level<stages[currentStage].unlock)currentStage=0;
  }catch(e){console.log("저장 데이터 불러오기 실패");}
