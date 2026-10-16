@@ -223,8 +223,8 @@ h1{font-size:clamp(18px,3vw,25px)}
 
 <div id="utilityControls">
  <button class="action" id="capture">🪄 포획</button>
- <button class="action" id="explore">🌲 탐험 시작</button><button class="action" id="leaveExplore" style="background:#a83232;display:none">🚪 탐험 나가기</button>
- <button class="action" id="specialAttack" disabled title="특수 공격은 다음 업데이트에서 추가됩니다">⭐ 특수 공격</button>
+ <button class="action" id="explore">🌲 탐험 시작</button><button class="action" id="infiniteMode">♾️ 무한 모드 시작</button><button class="action" id="leaveExplore" style="background:#a83232;display:none">🚪 모드 종료</button>
+ <button class="action" id="specialAttack">⭐ 특수 공격</button>
 </div>
 
 <div class="panel" id="stagePanel">
@@ -283,6 +283,19 @@ let defeatedBosses=[];
 let bossIntroTimer=0;
 let keys={};
 let monster=null;
+let monsters=[];
+function addMonster(m){monsters.push(m);monster=m;return m;}
+function syncMonster(){monsters=monsters.filter(m=>m.alive);monster=monsters[monsters.length-1]||null;}
+function awardDefeat(defeated){
+ if(defeated.rewarded)return;defeated.rewarded=true;
+ if(defeated.boss){
+  const firstClear=!defeatedBosses.includes(defeated.name);
+  if(firstClear){defeatedBosses.push(defeated.name);coins+=defeated.reward||0;xp+=(defeated.level||1)*30;const prize=swords.find(s=>s.name===defeated.rewardSword);if(prize){if(!owned.includes(prize.name))owned.push(prize.name);if(prize.power>sword.power)sword=prize;}say("🏆 보스 "+defeated.name+" 격파! 보상 획득!");}
+  else{coins+=Math.floor((defeated.reward||0)/5);xp+=(defeated.level||1)*10;say("보스 재격파!");}
+ }else{coins+=10+(defeated.level||1)*5;xp+=20+(defeated.level||1)*10;say(defeated.name+"을(를) 쓰러뜨렸다! 코인과 경험치 획득!");if(infiniteMode){waveKills++;if(waveKills>=10){wave++;waveKills=0;let prize=wave%10===0?200:0;if(wave===50)prize=1000;if(wave===100)prize=100000;if(prize){coins+=prize;say("♾️ "+wave+" 웨이브 달성! "+prize.toLocaleString()+"코인 획득!");}if(wave===50){infiniteBossQueue=bosses.map(b=>({...b}));say("👑 50 웨이브! 스테이지 보스 4마리가 차례로 등장합니다!");}if(wave===100){const ultimate={name:"무한 모드의 절대자",emoji:"🌌",hp:50000,attack:120,level:100,reward:0,skill:"무한 붕괴"};infiniteBossQueue=[ultimate];const prizeSword=swords.find(x=>x.name==="모든 걸 깨달은 자");if(prizeSword){if(!owned.includes(prizeSword.name))owned.push(prizeSword.name);sword=prizeSword;say("✨ 초월의 검 모든 걸 깨달은 자 획득!");}}}}}
+ checkLevel();renderStages();saveGame(true);
+}
+
 let currentStage=0;
 let attackTimer=0;
 let attackAngle=0, aimAngle=0, aimMagnitude=0, aimActive=false;
@@ -290,6 +303,7 @@ let invincible=0;
 let message="숲을 탐험해 몬스터를 찾아보세요!";
 let lastTime=0;
 let exploring=false, exploreSpawnTimer=0;
+let infiniteMode=false, wave=0, waveKills=0, infiniteBossQueue=[];
 let upgrades={};
 
 const player={x:400,y:250,speed:190,face:1};
@@ -302,7 +316,7 @@ const trees=[
 // 검의 공격력에 따라 사거리가 조금씩 증가합니다. 나무검 61, 천공의 검 110
 function getSwordLevel(){return upgrades[sword.name]||0;}
 function getSwordPower(){return Math.floor(sword.power*(1+getSwordLevel()*.18));}
-function getAttackRange(){return 58 + Math.max(0,Number(sword.power)||0)*0.075 + getSwordLevel()*2;}
+function getAttackRange(){return sword.name==="모든 걸 깨달은 자"?300:58 + Math.max(0,Number(sword.power)||0)*0.075 + getSwordLevel()*2;}
 
 const swords=[
  {name:"나무검",power:10,chance:35,rarity:"일반",className:"common"},
@@ -314,6 +328,7 @@ const swords=[
  {name:"성검 엑스칼리버",power:220,chance:1,rarity:"전설",className:"legendary"},
  {name:"공허의 검",power:350,chance:0.4,rarity:"신화",className:"mythic"},
  {name:"천공의 검",power:500,chance:0.1,rarity:"신화",className:"mythic"},
+ {name:"모든 걸 깨달은 자",power:10000,chance:0,rarity:"초월",className:"mythic",bossOnly:true},
  {name:"수호자의 뿌리검",power:85,chance:0,rarity:"보스 전용",className:"epic",bossOnly:true},
  {name:"홍염의 심판",power:190,chance:0,rarity:"보스 전용",className:"legendary",bossOnly:true},
  {name:"빙결의 왕검",power:300,chance:0,rarity:"보스 전용",className:"legendary",bossOnly:true},
@@ -355,11 +370,13 @@ function renderProbabilityTable(){
  ).join("");
 }
 
+let specialAttackCooldown=0;
+let specialSlash=null;
 function updateUI(){
  $("leaveExplore").style.display=exploring?"inline-block":"none";
  $("explore").textContent=exploring?"🌲 탐험 중...":"🌲 탐험 시작";
  $("coins").textContent=coins;$("level").textContent=level;
- $("hp").textContent=Math.max(0,Math.floor(hp));$("sword").textContent=sword.name;
+ $("hp").textContent=Math.max(0,Math.floor(hp));$("sword").textContent=sword.name;$("specialAttack").disabled=sword.name!=="모든 걸 깨달은 자";
  $("drawResult").textContent="현재 장착 검: "+sword.name+" (힘 "+getSwordPower()+")";
  renderDex();
  renderBossRecords();
@@ -425,7 +442,7 @@ function renderStages(){
  }).join("");
  document.querySelectorAll("[data-stage]").forEach(button=>{
   button.onclick=()=>{
-   if(exploring||(monster&&monster.alive)){say("탐험을 종료한 뒤 스테이지를 바꿀 수 있습니다!");return;}
+   if(exploring||monsters.some(m=>m.alive)){say("탐험을 종료한 뒤 스테이지를 바꿀 수 있습니다!");return;}
    currentStage=Number(button.dataset.stage);
    renderStages();
    say(stages[currentStage].name+" 스테이지로 이동했습니다!");
@@ -433,24 +450,24 @@ function renderStages(){
  });
  const bb=$("bossChallenge");
  bb.textContent=defeatedBosses.includes(bosses[currentStage].name)?"👑 보스 재도전 (보상 없음)":"👑 "+bosses[currentStage].name+" 도전";
- bb.disabled=!!(monster&&monster.alive);
+ bb.disabled=monsters.some(m=>m.alive);
 }
 
 function spawnMonster(){
  let stage=stages[currentStage];
- let pool=species.filter(s=>stage.monsters.includes(s.name));
+ let pool=infiniteMode?species:species.filter(s=>stage.monsters.includes(s.name));
  if(!pool.length){say("이 스테이지의 몬스터를 만나려면 레벨을 더 올려야 합니다!");return;}
  let s=pool[Math.floor(Math.random()*pool.length)];
- monster={
+ addMonster({
   ...s,
   x:80+Math.random()*640,
   y:70+Math.random()*340,
-  maxHp:s.hp+level*5,
-  hp:s.hp+level*5,
+  maxHp:infiniteMode?Math.floor((s.hp+level*5)*(1+wave*.12)):s.hp+level*5,
+  hp:infiniteMode?Math.floor((s.hp+level*5)*(1+wave*.12)):s.hp+level*5,
   alive:true,
   attackWait:0
- };
- say(monster.name+"이(가) 나타났다!");
+ });
+ say(s.name+"이(가) 나타났다!");
   renderStages();
 }
 
@@ -465,10 +482,11 @@ function showBossIntro(b){
 }
 
 function spawnBoss(){
+ if(infiniteMode){say("무한 모드에서는 전용 웨이브 보스가 등장합니다!");return;}
  if(exploring){say("보스 도전 전에 탐험을 종료하세요!");return;}
- if(monster&&monster.alive){say("전투가 끝난 뒤 보스에게 도전할 수 있습니다!");return;}
+ if(monsters.some(m=>m.alive)){say("전투가 끝난 뒤 보스에게 도전할 수 있습니다!");return;}
  const b=bosses[currentStage];
- monster={...b,x:player.x>400?180:620,y:240,maxHp:b.hp,hp:b.hp,alive:true,attackWait:1.5,boss:true,skillWait:4,skillWarning:0};
+ addMonster({...b,x:player.x>400?180:620,y:240,maxHp:b.hp,hp:b.hp,alive:true,attackWait:1.5,boss:true,skillWait:4,skillWarning:0});
  showBossIntro(b);
  say("⚠️ 보스 "+b.name+" 등장! 조심해!");
  renderStages();
@@ -530,35 +548,17 @@ function drawBar(x,y,w,h,value,max){
 
 function render(){
  drawBackground();
+ if(specialSlash){
+  ctx.save();ctx.translate(specialSlash.x,specialSlash.y);ctx.rotate(specialSlash.angle);
+  ctx.strokeStyle="#9ffcff";ctx.shadowColor="#63eaff";ctx.shadowBlur=22;ctx.lineWidth=13;ctx.lineCap="round";
+  ctx.beginPath();ctx.moveTo(28,0);ctx.lineTo(500,0);ctx.stroke();ctx.restore();
+ }
 
- if(monster&&monster.alive){
-  drawCharacter(monster.x,monster.y,monster.emoji,monster.boss?58:35);
-  if(monster.boss&&monster.skillWarning>0){
-   const warnRadius=monster.skillRadius||155;
-   ctx.save();ctx.fillStyle="rgba(255,75,55,.16)";ctx.strokeStyle="rgba(255,220,120,.48)";ctx.lineWidth=3;ctx.setLineDash([9,7]);
-   ctx.beginPath();ctx.arc(monster.skillX??monster.x,monster.skillY??monster.y,warnRadius,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.setLineDash([]);
-   ctx.fillStyle="rgba(255,235,117,.85)";ctx.font="bold 16px Arial";ctx.textAlign="center";ctx.fillText("⚠ "+monster.skill+"!",monster.x,monster.y-58);ctx.restore();
-  }
-  ctx.fillStyle="white";
-  ctx.font="13px Arial";
-  ctx.textAlign="center";
-  ctx.fillText(monster.name,monster.x,monster.y-30);
-  drawBar(monster.x-24,monster.y-23,48,6,monster.hp,monster.maxHp);
-ctx.fillStyle="white";
-ctx.font="bold 14px Arial";
-ctx.textAlign="center";
-ctx.strokeStyle="#222";
-ctx.lineWidth=3;
-ctx.strokeText(
- Math.ceil(monster.hp)+" / "+monster.maxHp,
- monster.x,
- monster.y-37
-);
-ctx.fillText(
- Math.ceil(monster.hp)+" / "+monster.maxHp,
- monster.x,
- monster.y-37
-);
+
+ for(const m of monsters){if(!m.alive)continue;
+  drawCharacter(m.x,m.y,m.emoji,m.boss?58:35);
+  if(m.boss&&m.skillWarning>0){const r=m.skillRadius||155;ctx.save();ctx.fillStyle="rgba(255,75,55,.16)";ctx.strokeStyle="rgba(255,220,120,.48)";ctx.lineWidth=3;ctx.setLineDash([9,7]);ctx.beginPath();ctx.arc(m.skillX??m.x,m.skillY??m.y,r,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.setLineDash([]);ctx.fillStyle="rgba(255,235,117,.85)";ctx.font="bold 16px Arial";ctx.textAlign="center";ctx.fillText("⚠ "+m.skill+"!",m.x,m.y-58);ctx.restore();}
+  ctx.fillStyle="white";ctx.font="13px Arial";ctx.textAlign="center";ctx.fillText(m.name,m.x,m.y-30);drawBar(m.x-24,m.y-23,48,6,m.hp,m.maxHp);ctx.font="bold 14px Arial";ctx.strokeStyle="#222";ctx.lineWidth=3;ctx.strokeText(Math.ceil(m.hp)+" / "+m.maxHp,m.x,m.y-37);ctx.fillText(Math.ceil(m.hp)+" / "+m.maxHp,m.x,m.y-37);
  }
 
  drawCharacter(player.x,player.y,"🧑‍🌾",34);
@@ -615,33 +615,19 @@ function attack(directionAngle=null){
  if(attackTimer>0)return;
  const angle=directionAngle===null?(player.face<0?Math.PI:0):directionAngle;
  attackAngle=angle;aimAngle=angle;attackTimer=.22;
- // 몬스터가 없어도 공격 모션은 실행. 명중 판정만 몬스터가 있을 때 수행.
- if(monster&&monster.alive){
-  const dx=monster.x-player.x,dy=monster.y-player.y;
-  const distance=Math.hypot(dx,dy),radius=monster.boss?29:18;
-  const targetAngle=Math.atan2(dy,dx);
-  const diff=Math.atan2(Math.sin(targetAngle-angle),Math.cos(targetAngle-angle));
-  const allowance=distance>radius?Math.asin(Math.min(1,radius/distance)):Math.PI;
-  const hit=distance-radius<=getAttackRange() && Math.abs(diff)<=Math.PI/3+allowance;
-  if(hit){
-   monster.hp-=getSwordPower()+level*2;
-   say(monster.name+"에게 "+(getSwordPower()+level*2)+"의 피해!");
-  }else say("공격!");
- }else say("공격!");
- if(monster&&monster.alive&&monster.hp<=0){
-  monster.hp=0;monster.alive=false;
- if(exploring)exploreSpawnTimer=1;
- if(monster.hp<=0){
-  monster.hp=0;
-  monster.alive=false;
-  if(monster.boss){
-   const firstClear=!defeatedBosses.includes(monster.name);
-   if(firstClear){defeatedBosses.push(monster.name);coins+=monster.reward;xp+=monster.level*30;const prize=swords.find(s=>s.name===monster.rewardSword);if(prize){owned.push(prize.name);if(prize.power>sword.power)sword=prize;say("🏆 보스 "+monster.name+" 격파! "+monster.reward+"코인과 보상 검 "+prize.name+" 획득!");}else{say("🏆 보스 "+monster.name+" 격파! "+monster.reward+"코인 특별 보상!");}}
-   else{coins+=Math.floor(monster.reward/5);xp+=monster.level*10;say("보스 재격파! 추가 코인을 획득했습니다.");}
-  }else{coins+=10+monster.level*5;xp+=20+monster.level*10;say(monster.name+"을(를) 쓰러뜨렸다! 코인과 경험치 획득!");}
-  checkLevel();renderStages();saveGame(true);
- }
- }
+ let hit=false;for(const m of monsters){if(!m.alive)continue;const dx=m.x-player.x,dy=m.y-player.y,d=Math.hypot(dx,dy),r=m.boss?29:18,a=Math.atan2(dy,dx),diff=Math.atan2(Math.sin(a-angle),Math.cos(a-angle)),allow=d>r?Math.asin(Math.min(1,r/d)):Math.PI;if(d-r<=getAttackRange()&&Math.abs(diff)<=Math.PI/3+allow){m.hp-=getSwordPower()+level*2;hit=true;if(m.hp<=0){m.hp=0;m.alive=false;awardDefeat(m);}else say(m.name+"에게 "+(getSwordPower()+level*2)+"의 피해!");}}if(!hit)say("공격!");syncMonster();
+ updateUI();
+}
+
+function useSpecialAttack(directionAngle=null){
+ if(sword.name!=="모든 걸 깨달은 자"){say("이 검의 특수 스킬은 모든 걸 깨달은 자 전용입니다!");return;}
+ if(specialAttackCooldown>0){say("특수 스킬을 잠시 기다려 주세요!");return;}
+ let angle=directionAngle;
+ if(angle===null){let dx=0,dy=0;if(keys.left||keys.a)dx--;if(keys.right||keys.d)dx++;if(keys.up||keys.w)dy--;if(keys.down||keys.s)dy++;angle=(dx||dy)?Math.atan2(dy,dx):(player.face<0?Math.PI:0);}
+ specialAttackCooldown=3;
+ const range=520;
+ let hit=false;for(const m of monsters){if(!m.alive)continue;const dx=m.x-player.x,dy=m.y-player.y,d=Math.hypot(dx,dy),a=Math.atan2(dy,dx),diff=Math.atan2(Math.sin(a-angle),Math.cos(a-angle)),r=m.boss?30:20;if(d-r<=range&&Math.abs(diff)<=.13+Math.asin(Math.min(1,r/Math.max(1,d)))){m.hp-=400;hit=true;say("🌠 "+m.name+"에게 검기 적중! 400 피해!");if(m.hp<=0){m.hp=0;m.alive=false;awardDefeat(m);}}}if(!hit)say("🌠 검기가 날아갔지만 빗나갔습니다!");syncMonster();
+ specialSlash={x:player.x,y:player.y,angle,life:.25};
  updateUI();
 }
 
@@ -708,68 +694,34 @@ function drawSword(){
 }
 
 function handleDeath(){
- // 사망 시 나무검만 남기고 모든 성장/수집/재화를 초기화
- coins=0;level=1;xp=0;hp=100;sword=swords.find(s=>s.name==="나무검");
- owned=[];caught=[];defeatedBosses=[];upgrades={};currentStage=0;
- monster=null;exploring=false;exploreSpawnTimer=0;attackTimer=0;aimActive=false;
+ // 사망하면 현재 상대 중인 몬스터만 사라진다. 보상은 지급하지 않고
+ // 코인, 레벨, 검, 도감, 강화, 스테이지 진행 상황은 그대로 보존한다.
+ const lostMonsterName=monster?.name||"몬스터";
+ monsters=[];monster=null;
+ if(infiniteMode){infiniteMode=false;wave=0;waveKills=0;infiniteBossQueue=[];exploring=false;exploreSpawnTimer=0;}
+ hp=100;
+ attackTimer=0;aimActive=false;
+ // 사망하면 탐험과 무한 모드를 모두 종료한다.
+ exploreSpawnTimer=0;
  player.x=400;player.y=250;
  updateUI();renderStages();saveGame(true);
- say("💀 쓰러졌습니다! 나무검만 남고 코인·검·도감·강화·진행 기록을 모두 잃었습니다.");
+ say("💀 쓰러졌습니다! "+lostMonsterName+"은(는) 사라졌고 보상은 없습니다. 탐험/무한 모드가 종료됐으며 보유한 코인과 검은 유지됩니다.");
 }
 
 function update(dt){
+ if(specialAttackCooldown>0)specialAttackCooldown=Math.max(0,specialAttackCooldown-dt);
+ if(specialSlash){specialSlash.life-=dt;if(specialSlash.life<=0)specialSlash=null;}
  move(dt);
  if(attackTimer>0)attackTimer-=dt;
  if(invincible>0)invincible-=dt;
 
- if(exploring&&(!monster||!monster.alive)){
-  exploreSpawnTimer-=dt;if(exploreSpawnTimer<=0){spawnMonster();exploreSpawnTimer=1;}
- }
- if(monster&&monster.alive){
-  let dx=player.x-monster.x;
-  let dy=player.y-monster.y;
-  let d=Math.hypot(dx,dy);
-
-  if(d>48){
-   monster.x+=dx/d*45*dt;
-   monster.y+=dy/d*45*dt;
-  }else if(monster.attackWait<=0&&invincible<=0){
-   const incoming=monster.attack||8;
-   hp-=incoming;
-   invincible=.8;
-   monster.attackWait=1.2;
-   say(monster.name+"에게 "+incoming+"의 피해를 받았다!");
-   if(hp<=0){handleDeath();return;}
-   updateUI();
-  }
-  monster.attackWait-=dt;
-  if(monster.boss){
-   monster.skillWait-=dt;
-   if(monster.skillWait<=0&&monster.skillWarning<=0){
-    monster.skillWarning=1.6;
-    monster.skillX=player.x;monster.skillY=player.y;monster.skillRadius=monster.name==="천공의 지배자"?185:150;
-    monster.skillWait=5.5;
-    say("⚠️ "+monster.name+"의 "+monster.skill+" 준비! 멀리 피하세요!");
-   }
-   if(monster.skillWarning>0){
-    monster.skillWarning-=dt;
-    if(monster.skillWarning<=0){
-     const skillDistance=Math.hypot(player.x-monster.skillX,player.y-monster.skillY);
-     if(skillDistance<monster.skillRadius&&invincible<=0){
-      const damage=Math.ceil(monster.attack*1.6);
-      hp-=damage;invincible=1.0;
-      say("💥 "+monster.skill+" 적중! "+damage+" 피해!");
-      if(hp<=0){handleDeath();return;}
-      updateUI();
-     }else{say("멋지게 회피했다! "+monster.skill+"을 피했습니다.");}
-    }
-   }
-  }
- }
+ if(exploring||infiniteMode){exploreSpawnTimer-=dt;if(exploreSpawnTimer<=0){if(infiniteMode&&infiniteBossQueue.length&&monsters.length===0){const b=infiniteBossQueue.shift();addMonster({...b,x:player.x>400?180:620,y:240,maxHp:b.hp,hp:b.hp,alive:true,attackWait:1.5,boss:true,skillWait:4,skillWarning:0});showBossIntro(b);say("♾️ 웨이브 보스 등장: "+b.name);}else if(infiniteMode&&infiniteBossQueue.length===0){spawnMonster();}else if(exploring&&!infiniteMode&&monsters.length===0){spawnMonster();}exploreSpawnTimer=infiniteMode?.3:1;}}
+ for(const m of [...monsters]){if(!m.alive)continue;let dx=player.x-m.x,dy=player.y-m.y,d=Math.hypot(dx,dy);if(d>48){m.x+=dx/d*45*dt;m.y+=dy/d*45*dt;}else if(m.attackWait<=0&&invincible<=0){const incoming=m.attack||8;hp-=incoming;invincible=.8;m.attackWait=1.2;say(m.name+"에게 "+incoming+"의 피해를 받았다!");if(hp<=0){handleDeath();return;}updateUI();}m.attackWait-=dt;if(m.boss){m.skillWait-=dt;if(m.skillWait<=0&&m.skillWarning<=0){m.skillWarning=1.6;m.skillX=player.x;m.skillY=player.y;m.skillRadius=m.name==="천공의 지배자"?185:150;m.skillWait=5.5;say("⚠️ "+m.name+"의 "+m.skill+" 준비! 멀리 피하세요!");}if(m.skillWarning>0){m.skillWarning-=dt;if(m.skillWarning<=0){const sd=Math.hypot(player.x-m.skillX,player.y-m.skillY);if(sd<m.skillRadius&&invincible<=0){const damage=Math.ceil(m.attack*1.6);hp-=damage;invincible=1;say("💥 "+m.skill+" 적중! "+damage+" 피해!");if(hp<=0){handleDeath();return;}updateUI();}else say("멋지게 회피했다! "+m.skill+"을 피했습니다.");}}}}syncMonster();
  if(bossIntroTimer>0){bossIntroTimer-=dt;if(bossIntroTimer<=0){$("bossIntro").classList.remove("show");}}
 }
 
 function loop(time){
+ if(specialAttackCooldown>0)specialAttackCooldown=Math.max(0,specialAttackCooldown-(typeof dt!=="undefined"?dt:0));
  let dt=Math.min((time-lastTime)/1000||0,.04);
  lastTime=time;
  update(dt);
@@ -831,18 +783,30 @@ $("closeInventory").onclick=closeInventory;
 $("inventoryOverlay").addEventListener("click",e=>{if(e.target.id==="inventoryOverlay")closeInventory();});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")closeInventory();});
 
+$("specialAttack").disabled=sword.name!=="모든 걸 깨달은 자";
+$("specialAttack").onclick=()=>{
+ if(sword.name!=="모든 걸 깨달은 자"){say("특수 스킬은 '모든 걸 깨달은 자' 전용입니다.");return;}
+ const a=aimMagnitude>.12?aimAngle:(player.face<0?Math.PI:0);
+ let hit=false;for(const m of monsters){if(!m.alive)continue;const dx=m.x-player.x,dy=m.y-player.y,d=Math.hypot(dx,dy),ang=Math.atan2(dy,dx),diff=Math.atan2(Math.sin(ang-a),Math.cos(ang-a));if(d<=520&&Math.abs(diff)<.16){m.hp-=400;hit=true;say("✨ "+m.name+"에게 검기 적중! 400 피해!");if(m.hp<=0){m.hp=0;m.alive=false;awardDefeat(m);}}}if(!hit)say("검기가 날아갔지만 맞지 않았습니다!");syncMonster();
+ updateUI();saveGame(true);
+};
 $("capture").onclick=capture;
 $("draw").onclick=drawSword;
 $("bossChallenge").onclick=spawnBoss;
+$("infiniteMode").onclick=()=>{
+ if(infiniteMode||exploring||monster?.alive){say("현재 전투나 모드를 먼저 끝내세요!");return;}
+ infiniteMode=true;exploring=false;monsters=[];monster=null;wave=1;waveKills=0;infiniteBossQueue=[];exploreSpawnTimer=0;
+ say("♾️ 무한 모드 시작! 몬스터 10마리를 처치하면 다음 웨이브로 진행합니다.");spawnMonster();updateUI();saveGame(true);
+};
 $("explore").onclick=()=>{
- if(exploring)return;
- exploring=true;exploreSpawnTimer=0;
- if(!monster||!monster.alive)spawnMonster();
+ if(exploring||infiniteMode)return;
+ exploring=true;monsters=[];monster=null;exploreSpawnTimer=0;
+ if(!monsters.some(m=>m.alive))spawnMonster();
  updateUI();say("🌲 연속 탐험 시작! 나가기 버튼을 누르면 종료됩니다.");saveGame(true);
 };
 $("leaveExplore").onclick=()=>{
- exploring=false;exploreSpawnTimer=0;
- if(monster&&monster.alive){monster=null;}
+ exploring=false;infiniteMode=false;wave=0;waveKills=0;infiniteBossQueue=[];exploreSpawnTimer=0;
+ monsters=[];monster=null;
  updateUI();say("탐험을 종료했습니다.");saveGame(true);
 };
 $("heal").onclick=()=>{
