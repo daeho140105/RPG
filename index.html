@@ -130,6 +130,7 @@ button {
 .item-card h4{margin:0 0 8px}
 .item-card p{margin:5px 0;font-size:13px}
 .item-card button{width:100%;margin:8px 0 0}
+.enchant-status{color:#f5c85b;font-weight:700;margin:6px 0}
 .item-rarity{font-size:12px;color:#ffdc83}
 #inventoryCount{color:#c6d1e1;font-size:13px}
 .upgrade-info{color:#ffdc83;font-size:13px}.skill-zone{animation:skillPulse .55s ease-in-out infinite alternate}@keyframes skillPulse{to{opacity:.35}}
@@ -228,7 +229,7 @@ h1{font-size:clamp(18px,3vw,25px)}
    <div><h2 id="inventoryTitle">🎒 검 인벤토리</h2><div id="inventoryCount">보유한 검 0종</div></div>
    <button id="closeInventory" aria-label="인벤토리 닫기">✖ 닫기</button>
   </div>
-  <p>보유한 검을 장착하거나 같은 검을 재료로 강화할 수 있어. 강화 재료는 +1부터 3개, 이후 단계마다 2개씩 늘어나!</p>
+  <p>보유한 검을 장착하거나 같은 검으로 강화할 수 있어. 인첸트는 검마다 1,000코인이 필요하며 고유 특수 스킬을 영구적으로 부여해!</p>
   <div id="inventoryItems"></div>
  </div>
 </div>
@@ -236,7 +237,7 @@ h1{font-size:clamp(18px,3vw,25px)}
 <div id="utilityControls">
  <button class="action" id="capture">🪄 포획</button>
  <button class="action" id="explore">🌲 탐험 시작</button><button class="action" id="infiniteMode">♾️ 무한 모드 시작</button><button class="action" id="leaveExplore" style="background:#a83232;display:none">🚪 모드 종료</button>
- <button class="action" id="specialAttack">⭐ 특수 공격</button>
+ <button class="action" id="specialAttack">⭐ 인첸트 스킬</button>
 </div>
 
 <div class="panel" id="stagePanel">
@@ -319,6 +320,7 @@ let lastTime=0;
 let exploring=false, exploreSpawnTimer=0;
 let infiniteMode=false, wave=0, waveKills=0, infiniteBossQueue=[];
 let upgrades={};
+let enchanted={};
 
 const player={x:400,y:250,speed:190,face:1};
 const trees=[
@@ -387,6 +389,51 @@ function renderProbabilityTable(){
 
 let specialAttackCooldown=0;
 let specialSlash=null;
+let fireDots=[];
+function enchantCost(name){return (name==="공허의 검"||name==="천공의 검")?10000:1000;}
+function skillLabel(name){return ({"나무검":"작은 검기","강철검":"강철 검기","화염검":"화상","번개검":"천둥 낙뢰","드래곤 슬레이어":"용살 부채꼴","창조의 검":"무작위 창조","성검 엑스칼리버":"성역의 일격","공허의 검":"블랙홀","천공의 검":"천공 심판","모든 걸 깨달은 자":"초월 검기"})[name]||"특수 스킬";}
+function damageMonster(m,damage,label){if(!m.alive)return;m.hp-=damage;if(m.hp<=0){m.hp=0;m.alive=false;awardDefeat(m);}else say(label+" · "+m.name+"에게 "+damage+" 피해!");}
+function useEnchantedSkill(directionAngle=null){
+ const name=sword.name;if(!enchanted[name]){say("인벤토리에서 이 검을 인첸트해 주세요!");return;}
+ if(specialAttackCooldown>0){say("특수 스킬 대기 시간입니다!");return;}
+ let angle=directionAngle===null?(aimMagnitude>.12?aimAngle:(player.face<0?Math.PI:0)):directionAngle;
+ specialAttackCooldown=10;let hit=0;
+ const alive=monsters.filter(m=>m.alive);
+ const radial=(range,damage,label)=>{for(const m of alive){const d=Math.hypot(m.x-player.x,m.y-player.y),r=m.boss?30:20;if(d-r<=range){damageMonster(m,damage,label);hit++;}}};
+ if(name==="나무검"||name==="강철검"){
+  const range=name==="나무검"?95:145,damage=name==="나무검"?100:250;
+  for(const m of alive){const dx=m.x-player.x,dy=m.y-player.y,d=Math.hypot(dx,dy),a=Math.atan2(dy,dx),diff=Math.atan2(Math.sin(a-angle),Math.cos(a-angle));if(d<=range&&Math.abs(diff)<.35){damageMonster(m,damage,skillLabel(name));hit++;}}
+  specialSlash={x:player.x,y:player.y,angle,life:.35};
+ }else if(name==="화염검"){
+  for(const m of alive){const dx=m.x-player.x,dy=m.y-player.y,d=Math.hypot(dx,dy),a=Math.atan2(dy,dx),diff=Math.atan2(Math.sin(a-angle),Math.cos(a-angle));if(d<=180&&Math.abs(diff)<.65){fireDots.push({monster:m,remaining:3,tick:0});hit++;}}
+  say(hit?"🔥 화상 부여! 3초 동안 초당 100 피해!":"화염이 빗나갔습니다!");
+ }else if(name==="번개검"){
+  const target=alive.sort((a,b)=>Math.hypot(a.x-player.x,a.y-player.y)-Math.hypot(b.x-player.x,b.y-player.y))[0];if(target){damageMonster(target,1000,"⚡ 번개 낙하");hit++;}
+ }else if(name==="드래곤 슬레이어"){
+  const range=getAttackRange()*2;for(const m of alive){const dx=m.x-player.x,dy=m.y-player.y,d=Math.hypot(dx,dy),a=Math.atan2(dy,dx),diff=Math.atan2(Math.sin(a-angle),Math.cos(a-angle));if(d<=range&&Math.abs(diff)<Math.PI/4){damageMonster(m,1500,"🐉 용살 부채꼴");hit++;}}specialSlash={x:player.x,y:player.y,angle,life:.5};
+ }else if(name==="창조의 검"){
+  const choices=["나무검","강철검","화염검","번개검","드래곤 슬레이어","성검 엑스칼리버","공허의 검","천공의 검"];
+  const chosen=choices[Math.floor(Math.random()*choices.length)];
+  if(chosen==="성검 엑스칼리버"){for(const m of alive){damageMonster(m,2000,"✨ 창조의 검·성역의 일격");hit++;}}
+  else if(chosen==="공허의 검"){for(const m of alive){m.x=400;m.y=240;damageMonster(m,Math.max(m.hp,1),"🌀 창조의 검·블랙홀");hit++;}}
+  else if(chosen==="천공의 검"){for(const m of alive){damageMonster(m,Math.max(m.hp,1),"⚡ 창조의 검·천공 심판");hit++;}}
+  else if(chosen==="번개검"){const m=alive[0];if(m){damageMonster(m,1000,"⚡ 창조의 검·낙뢰");hit++;}}
+  else if(chosen==="드래곤 슬레이어"){for(const m of alive){const d=Math.hypot(m.x-player.x,m.y-player.y),a=Math.atan2(m.y-player.y,m.x-player.x),diff=Math.atan2(Math.sin(a-angle),Math.cos(a-angle));if(d<=getAttackRange()*2&&Math.abs(diff)<Math.PI/4){damageMonster(m,1500,"🐉 창조의 검·용살");hit++;}}}
+  else if(chosen==="화염검"){for(const m of alive){fireDots.push({monster:m,remaining:3,tick:0});hit++;}}
+  else {for(const m of alive){const d=Math.hypot(m.x-player.x,m.y-player.y),a=Math.atan2(m.y-player.y,m.x-player.x),diff=Math.atan2(Math.sin(a-angle),Math.cos(a-angle));if(d<=(chosen==="나무검"?95:145)&&Math.abs(diff)<.35){damageMonster(m,chosen==="나무검"?100:250,"✨ 창조의 검·검기");hit++;}}}
+  say("✨ 창조의 검이 무작위 스킬을 발동했습니다: "+skillLabel(chosen));
+ }else if(name==="성검 엑스칼리버"){
+  for(const m of alive){damageMonster(m,2000,"🌟 성역의 일격");hit++;}
+ }else if(name==="공허의 검"){
+  for(const m of alive){m.x=400;m.y=240;damageMonster(m,Math.max(m.hp,1),"🌀 블랙홀 즉사");hit++;}
+ }else if(name==="천공의 검"){
+  for(const m of alive){damageMonster(m,Math.max(m.hp,1),"⚡ 천공의 번개 즉사");hit++;}
+ }else if(name==="모든 걸 깨달은 자"){
+  for(const m of alive){const dx=m.x-player.x,dy=m.y-player.y,d=Math.hypot(dx,dy),a=Math.atan2(dy,dx),diff=Math.atan2(Math.sin(a-angle),Math.cos(a-angle));if(d<=520&&Math.abs(diff)<.2){damageMonster(m,400,"🌠 초월 검기");hit++;}}
+ }
+ syncMonster();updateUI();saveGame(true);if(!hit&&name!=="화염검")say("특수 스킬이 적중하지 않았습니다!");
+}
+
 function updateUI(){
  $("leaveExplore").style.display=(exploring||infiniteMode)?"inline-block":"none";
  const waveDisplay=$("waveDisplay");
@@ -395,7 +442,9 @@ function updateUI(){
  $("explore").textContent=exploring?"🌲 탐험 중...":"🌲 탐험 시작";
  $("coins").textContent=coins;$("level").textContent=level;
  $("hp").textContent=Math.max(0,Math.floor(hp));$("maxHp").textContent=getMaxHp();$("sword").textContent=sword.name;
- $("attackStatValue").textContent="×"+stats.attack;$("rangeStatValue").textContent="×"+stats.range;$("healthStatValue").textContent="+"+(stats.health*100);$("healthStatMax").textContent=getMaxHp();$("specialAttack").disabled=sword.name!=="모든 걸 깨달은 자";
+ $("specialAttack").disabled=!enchanted[sword.name];
+ $("specialAttack").textContent=enchanted[sword.name]?"⭐ "+(sword.name==="모든 걸 깨달은 자"?"초월 검기":"인첸트 스킬 사용"):"🔒 인첸트 필요";
+ $("attackStatValue").textContent="×"+stats.attack;$("rangeStatValue").textContent="×"+stats.range;$("healthStatValue").textContent="+"+(stats.health*100);$("healthStatMax").textContent=getMaxHp();
  $("drawResult").textContent="현재 장착 검: "+sword.name+" (힘 "+getSwordPower()+")";
  renderDex();
  renderBossRecords();
@@ -414,7 +463,8 @@ function renderInventory(){
    <p>공격력: <b>${Math.floor(s.power*(1+lv*.18))}</b></p>
    <p>보유 수량: ${s.name==="나무검"?"기본 지급":count+"개"}</p>
    ${equipped?'<button disabled>현재 장착 중</button>':`<button data-equip="${s.name}">이 검 장착하기</button>`}
-   ${s.name==="나무검"?'<button disabled>기본 검은 강화할 수 없음</button>':`<button data-upgrade="${s.name}" ${count<needed?"disabled":""}>강화 재료 ${needed}개 사용 (+${lv+1})</button>`}
+   <button data-upgrade="${s.name}" ${s.name!=="나무검"&&count<needed?"disabled":""}>강화 ${s.name==="나무검"?"(기본 검)":"재료 "+needed+"개"} (+${lv+1})</button>
+   ${enchanted[s.name]?`<p class="enchant-status">✨ 인첸트 완료 · ${skillLabel(s.name)}</p>`:`<button data-enchant="${s.name}" ${coins<enchantCost(s.name)?"disabled":""}>✨ 인첸트 (${enchantCost(s.name).toLocaleString()}코인)</button>`}
   </div>`;
  }).join("");
  document.querySelectorAll("[data-equip]").forEach(button=>button.onclick=()=>{
@@ -423,9 +473,14 @@ function renderInventory(){
  });
  document.querySelectorAll("[data-upgrade]").forEach(button=>button.onclick=()=>{
   const name=button.dataset.upgrade,lv=upgrades[name]||0,needed=3+lv*2;
-  const count=owned.filter(n=>n===name).length;if(count<needed)return;
-  let remove=needed;owned=owned.filter(n=>{if(n===name&&remove>0){remove--;return false;}return true;});
+  const count=owned.filter(n=>n===name).length;if(name!=="나무검"&&count<needed)return;
+  if(name!=="나무검"){let remove=needed;owned=owned.filter(n=>{if(n===name&&remove>0){remove--;return false;}return true;});}
   upgrades[name]=lv+1;updateUI();saveGame(true);say(`✨ ${name} 강화 성공! +${lv+1} (공격력 18% 증가)`);
+ });
+ document.querySelectorAll("[data-enchant]").forEach(button=>button.onclick=()=>{
+  const name=button.dataset.enchant;if(enchanted[name])return;
+  const cost=enchantCost(name);if(coins<cost){say("인첸트에는 "+cost.toLocaleString()+"코인이 필요합니다!");return;}
+  coins-=cost;enchanted[name]=true;updateUI();saveGame(true);say("✨ "+name+"에 특수 스킬을 부여했습니다!");
  });
 }
 
@@ -638,17 +693,7 @@ function attack(directionAngle=null){
  updateUI();
 }
 
-function useSpecialAttack(directionAngle=null){
- if(sword.name!=="모든 걸 깨달은 자"){say("이 검의 특수 스킬은 모든 걸 깨달은 자 전용입니다!");return;}
- if(specialAttackCooldown>0){say("특수 스킬을 잠시 기다려 주세요!");return;}
- let angle=directionAngle;
- if(angle===null){let dx=0,dy=0;if(keys.left||keys.a)dx--;if(keys.right||keys.d)dx++;if(keys.up||keys.w)dy--;if(keys.down||keys.s)dy++;angle=(dx||dy)?Math.atan2(dy,dx):(player.face<0?Math.PI:0);}
- specialAttackCooldown=3;
- const range=520;
- let hit=false;for(const m of monsters){if(!m.alive)continue;const dx=m.x-player.x,dy=m.y-player.y,d=Math.hypot(dx,dy),a=Math.atan2(dy,dx),diff=Math.atan2(Math.sin(a-angle),Math.cos(a-angle)),r=m.boss?30:20;if(d-r<=range&&Math.abs(diff)<=.13+Math.asin(Math.min(1,r/Math.max(1,d)))){m.hp-=400;hit=true;say("🌠 "+m.name+"에게 검기 적중! 400 피해!");if(m.hp<=0){m.hp=0;m.alive=false;awardDefeat(m);}}}if(!hit)say("🌠 검기가 날아갔지만 빗나갔습니다!");syncMonster();
- specialSlash={x:player.x,y:player.y,angle,life:.25};
- updateUI();
-}
+function useSpecialAttack(directionAngle=null){useEnchantedSkill(directionAngle);}
 
 function checkLevel(){
  while(xp>=level*100){
@@ -730,6 +775,7 @@ function handleDeath(){
 function update(dt){
  if(specialAttackCooldown>0)specialAttackCooldown=Math.max(0,specialAttackCooldown-dt);
  if(specialSlash){specialSlash.life-=dt;if(specialSlash.life<=0)specialSlash=null;}
+ for(const dot of [...fireDots]){if(!dot.monster.alive){fireDots=fireDots.filter(x=>x!==dot);continue;}dot.remaining-=dt;dot.tick+=dt;while(dot.tick>=1&&dot.remaining>=0){dot.tick-=1;damageMonster(dot.monster,100,"🔥 화상 도트 피해");}if(dot.remaining<=0)fireDots=fireDots.filter(x=>x!==dot);}
  move(dt);
  if(attackTimer>0)attackTimer-=dt;
  if(invincible>0)invincible-=dt;
@@ -802,13 +848,8 @@ $("closeInventory").onclick=closeInventory;
 $("inventoryOverlay").addEventListener("click",e=>{if(e.target.id==="inventoryOverlay")closeInventory();});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")closeInventory();});
 
-$("specialAttack").disabled=sword.name!=="모든 걸 깨달은 자";
-$("specialAttack").onclick=()=>{
- if(sword.name!=="모든 걸 깨달은 자"){say("특수 스킬은 '모든 걸 깨달은 자' 전용입니다.");return;}
- const a=aimMagnitude>.12?aimAngle:(player.face<0?Math.PI:0);
- let hit=false;for(const m of monsters){if(!m.alive)continue;const dx=m.x-player.x,dy=m.y-player.y,d=Math.hypot(dx,dy),ang=Math.atan2(dy,dx),diff=Math.atan2(Math.sin(ang-a),Math.cos(ang-a));if(d<=520&&Math.abs(diff)<.16){m.hp-=400;hit=true;say("✨ "+m.name+"에게 검기 적중! 400 피해!");if(m.hp<=0){m.hp=0;m.alive=false;awardDefeat(m);}}}if(!hit)say("검기가 날아갔지만 맞지 않았습니다!");syncMonster();
- updateUI();saveGame(true);
-};
+
+$("specialAttack").onclick=()=>useEnchantedSkill(aimMagnitude>.12?aimAngle:null);
 $("capture").onclick=capture;
 $("draw").onclick=drawSword;
 $("bossChallenge").onclick=spawnBoss;
@@ -858,7 +899,7 @@ $("reset").onclick=()=>{
 };
 
 function saveGame(silent=false){
- const data={coins,level,xp,hp,sword,owned,caught,defeatedBosses,currentStage,upgrades,stats};
+ const data={coins,level,xp,hp,sword,owned,caught,defeatedBosses,currentStage,upgrades,stats,enchanted};
  localStorage.setItem("swordCollectorSave",JSON.stringify(data));
  if(!silent)say("💾 게임을 저장했습니다!");
 }
@@ -878,6 +919,7 @@ function loadGame(){
   caught=d.caught??[];
    defeatedBosses=d.defeatedBosses??[];
   upgrades=d.upgrades??{};
+  enchanted=d.enchanted??{};
   currentStage=Math.min(d.currentStage??0,stages.length-1);
   if(level<stages[currentStage].unlock)currentStage=0;
  }catch(e){console.log("저장 데이터 불러오기 실패");}
