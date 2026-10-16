@@ -10,6 +10,8 @@ body{margin:0;background:#151b29;color:white;font-family:Arial,sans-serif;text-a
 header{padding:12px;background:#222d42;color:#ffdc83}
 h1{margin:5px;font-size:25px}
 #stats{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;padding:10px;font-size:14px}
+#waveDisplay{display:none;padding:5px 12px;border:2px solid #ffdc83;border-radius:10px;background:#473b20;color:#ffe18b;font-weight:bold}
+#waveDisplay.active{display:inline-block}
 #game{display:block;width:min(96vw,800px);height:auto;margin:auto;border:4px solid #667b65;border-radius:10px;background:#7ab65d;image-rendering:pixelated;touch-action:none}
 #status{margin:10px;color:#ffe18b;min-height:22px}
 button{background:#6954ce;color:white;border:0;border-radius:9px;padding:11px 15px;margin:4px;font-size:14px;cursor:pointer}
@@ -198,6 +200,7 @@ h1{font-size:clamp(18px,3vw,25px)}
 <span>⭐ 레벨: <b id="level">1</b></span>
 <span>❤️ 체력: <b id="hp">100</b>/100</span>
 <span>⚔️ 검: <b id="sword">나무검</b></span>
+<span id="waveDisplay" aria-live="polite">♾️ 무한 모드 · 1 웨이브 (처치 0/10)</span>
 <button id="inventoryButton">🎒 인벤토리</button>
 </div>
 
@@ -293,7 +296,7 @@ function awardDefeat(defeated){
   if(firstClear){defeatedBosses.push(defeated.name);coins+=defeated.reward||0;xp+=(defeated.level||1)*30;const prize=swords.find(s=>s.name===defeated.rewardSword);if(prize){if(!owned.includes(prize.name))owned.push(prize.name);if(prize.power>sword.power)sword=prize;}say("🏆 보스 "+defeated.name+" 격파! 보상 획득!");}
   else{coins+=Math.floor((defeated.reward||0)/5);xp+=(defeated.level||1)*10;say("보스 재격파!");}
  }else{coins+=10+(defeated.level||1)*5;xp+=20+(defeated.level||1)*10;say(defeated.name+"을(를) 쓰러뜨렸다! 코인과 경험치 획득!");if(infiniteMode){waveKills++;if(waveKills>=10){wave++;waveKills=0;let prize=wave%10===0?200:0;if(wave===50)prize=1000;if(wave===100)prize=100000;if(prize){coins+=prize;say("♾️ "+wave+" 웨이브 달성! "+prize.toLocaleString()+"코인 획득!");}if(wave===50){infiniteBossQueue=bosses.map(b=>({...b}));say("👑 50 웨이브! 스테이지 보스 4마리가 차례로 등장합니다!");}if(wave===100){const ultimate={name:"무한 모드의 절대자",emoji:"🌌",hp:50000,attack:120,level:100,reward:0,skill:"무한 붕괴"};infiniteBossQueue=[ultimate];const prizeSword=swords.find(x=>x.name==="모든 걸 깨달은 자");if(prizeSword){if(!owned.includes(prizeSword.name))owned.push(prizeSword.name);sword=prizeSword;say("✨ 초월의 검 모든 걸 깨달은 자 획득!");}}}}}
- checkLevel();renderStages();saveGame(true);
+ checkLevel();renderStages();updateUI();saveGame(true);
 }
 
 let currentStage=0;
@@ -373,7 +376,10 @@ function renderProbabilityTable(){
 let specialAttackCooldown=0;
 let specialSlash=null;
 function updateUI(){
- $("leaveExplore").style.display=exploring?"inline-block":"none";
+ $("leaveExplore").style.display=(exploring||infiniteMode)?"inline-block":"none";
+ const waveDisplay=$("waveDisplay");
+ waveDisplay.classList.toggle("active",infiniteMode);
+ waveDisplay.textContent=infiniteMode?`♾️ 무한 모드 · ${wave} 웨이브 · 처치 ${waveKills}/10${infiniteBossQueue.length?" · 보스 대기 중":""}`:"";
  $("explore").textContent=exploring?"🌲 탐험 중...":"🌲 탐험 시작";
  $("coins").textContent=coins;$("level").textContent=level;
  $("hp").textContent=Math.max(0,Math.floor(hp));$("sword").textContent=sword.name;$("specialAttack").disabled=sword.name!=="모든 걸 깨달은 자";
@@ -796,6 +802,7 @@ $("bossChallenge").onclick=spawnBoss;
 $("infiniteMode").onclick=()=>{
  if(infiniteMode||exploring||monster?.alive){say("현재 전투나 모드를 먼저 끝내세요!");return;}
  infiniteMode=true;exploring=false;monsters=[];monster=null;wave=1;waveKills=0;infiniteBossQueue=[];exploreSpawnTimer=0;
+ updateUI();
  say("♾️ 무한 모드 시작! 몬스터 10마리를 처치하면 다음 웨이브로 진행합니다.");spawnMonster();updateUI();saveGame(true);
 };
 $("explore").onclick=()=>{
