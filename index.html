@@ -153,6 +153,35 @@ h1{font-size:clamp(18px,3vw,25px)}
 }
 @media(min-width:900px){#arena{width:min(96vw,1100px)}}
 
+/* 휴대폰 가로 화면 자동 최적화 */
+@media screen and (orientation:landscape) and (max-width:950px){
+ html,body{width:100%;min-height:100%;overflow-x:hidden;}
+ body{padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);}
+ header{padding:3px 8px;}
+ header h1{margin:1px;font-size:clamp(15px,3.2vh,21px);}
+ header small{font-size:10px;}
+ #stats{padding:3px 5px;gap:5px 9px;font-size:clamp(10px,2.2vh,13px);}
+ #stats button{padding:5px 8px;min-width:0;font-size:11px;margin:0;}
+ #arena{width:min(98vw, calc((100dvh - 105px) * 1.6667), 1100px);margin:3px auto 0;}
+ #game{width:100%;height:auto;aspect-ratio:5/3;}
+ #joystickLayer{padding:clamp(5px,1.8vh,14px) clamp(7px,2vw,18px);}
+ .joy{width:clamp(76px,min(13vw,22vh),118px);height:clamp(76px,min(13vw,22vh),118px);border-width:2px;}
+ .joy-label{bottom:-17px;font-size:10px;}
+ #status{margin:3px auto;min-height:16px;font-size:11px;}
+ #utilityControls{gap:5px;margin:3px auto 6px;}
+ #utilityControls button{min-width:0;padding:6px 9px;font-size:11px;}
+ .panel{max-width:min(96vw,800px);}
+}
+@media screen and (orientation:landscape) and (max-height:430px) and (max-width:950px){
+ header small{display:none;}
+ #stats{padding:2px 4px;}
+ #arena{width:min(98vw, calc((100dvh - 75px) * 1.6667), 1100px);}
+ #status{min-height:13px;margin:1px auto;font-size:10px;}
+ .joy{width:clamp(68px,19vh,90px);height:clamp(68px,19vh,90px);}
+ .joy-label{bottom:-15px;font-size:9px;}
+}
+
+
 </style>
 </head>
 <body>
