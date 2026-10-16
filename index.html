@@ -116,6 +116,15 @@ button {
 @keyframes bossFlash{0%{opacity:0}15%,75%{opacity:1}100%{opacity:0}}
 .boss-hint{color:#ffcf73;font-size:13px}
 #bossRecords{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+#dungeonChestOverlay{display:none;position:fixed;inset:0;z-index:40;background:rgba(4,7,16,.88);align-items:center;justify-content:center;padding:16px}
+#dungeonChestOverlay.show{display:flex;animation:bossFlash .45s ease both}
+#dungeonChestCard{width:min(460px,94vw);background:#253149;border:2px solid #e8bd58;border-radius:16px;padding:22px;text-align:center;box-shadow:0 0 35px #d69b32}
+#dungeonLoot{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:14px 0}
+.dungeon-loot-item{background:#182438;border:1px solid #7186a8;border-radius:9px;padding:10px 4px;font-size:13px}
+.dungeon-loot-item b{display:block;color:#ffdc83;font-size:17px;margin-top:5px}
+#dungeonMaterials{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:9px;text-align:left}
+.dungeon-material-card{background:#1b2638;border:1px solid #46546d;border-radius:10px;padding:10px}
+#dungeonPanel button:disabled{opacity:.4;cursor:not-allowed}
 .boss-record{background:#1b2638;padding:8px 12px;border-radius:8px;border:1px solid #46546d}
 .boss-record.cleared{border-color:#e8bd58;color:#ffdc83}
 #inventoryButton{background:#267b9b}
@@ -140,7 +149,10 @@ body{min-height:100vh;overflow-x:hidden}
 header{padding:7px 10px}
 h1{font-size:clamp(18px,3vw,25px)}
 #stats{padding:6px 8px;gap:8px;font-size:13px}
-#arena{position:relative;width:min(98vw,1100px);margin:6px auto 0;touch-action:none}
+#arenaLayout{display:flex;align-items:center;justify-content:center;gap:12px;width:min(99vw,1220px);margin:6px auto 0}
+#arena{position:relative;width:min(98vw,1100px);margin:0;touch-action:none;flex:1;min-width:0}
+#arenaHeal{flex:0 0 118px;width:118px;min-width:0;white-space:normal;line-height:1.35;padding:12px 8px;background:#b84e42;border:2px solid #ffb3a8;font-weight:bold;box-shadow:0 3px 10px #0005}
+#arenaHeal:hover{background:#d45d4e}
 #game{width:100%;height:auto;aspect-ratio:5/3;border-width:3px;margin:0;display:block}
 #joystickLayer{position:absolute;inset:0;pointer-events:none;display:flex;justify-content:space-between;align-items:flex-end;padding:clamp(10px,2.2vw,25px);}
 .joy{width:clamp(94px,14vw,142px);height:clamp(94px,14vw,142px);border-radius:50%;background:#17233866;border:3px solid #ffffff88;position:relative;pointer-events:auto;touch-action:none;user-select:none;}
@@ -156,10 +168,13 @@ h1{font-size:clamp(18px,3vw,25px)}
 #orientationButton{display:inline-block;margin:4px auto 7px;padding:9px 16px;border:2px solid #ffdc83;border-radius:12px;background:#263852;color:#fff;font-weight:bold;font-size:14px;cursor:pointer}
 @media(max-width:800px){
  body{padding:4px}
- #arena{width:100vw;max-width:100vw;margin:3px auto 0}
+ #arenaLayout{width:100%;gap:7px;align-items:center}
+ #arena{width:auto;max-width:none;margin:3px 0;flex:1}
+ #arenaHeal{flex:0 0 92px;width:92px;padding:9px 5px;font-size:12px}
  #game{width:100%;height:auto}
 }
 @media(min-width:900px){#arena{width:min(96vw,1100px)}}
+@media(max-width:520px){#arenaLayout{flex-direction:column;gap:5px}#arena{width:100%;flex:none}#arenaHeal{width:min(96vw,260px);flex:none;padding:9px 14px}}
 
 /* 휴대폰 가로 화면 자동 최적화 */
 @media screen and (orientation:landscape) and (max-width:950px){
@@ -208,12 +223,15 @@ h1{font-size:clamp(18px,3vw,25px)}
 <button id="inventoryButton">🎒 인벤토리</button>
 </div>
 
+<div id="arenaLayout">
 <div id="arena">
  <canvas id="game" width="800" height="480"></canvas>
  <div id="joystickLayer">
   <div class="joy" id="moveJoy" aria-label="이동 조이스틱"><span class="joy-label">이동</span></div>
   <div class="joy" id="aimJoy" aria-label="공격 조이스틱"><span class="joy-label">방향 조준 후 놓기</span></div>
  </div>
+</div>
+<button id="arenaHeal" type="button">❤️ 체력 회복<br>(50코인)</button>
 </div>
 <div id="status">숲을 탐험해 몬스터를 찾아보세요!</div>
 <div class="panel" id="statUpgradePanel">
@@ -223,6 +241,9 @@ h1{font-size:clamp(18px,3vw,25px)}
  <div class="stat-row"><span>❤️ 체력 추가: <b id="healthStatValue">+0</b> (최대 체력 <b id="healthStatMax">100</b>)</span><button id="upgradeHealth">체력 강화 (+100 / 1,000코인)</button></div>
 </div>
 <div id="bossIntro" aria-live="assertive"><div class="boss-icon" id="bossIntroEmoji">👑</div><strong id="bossIntroName">보스 등장!</strong><span>강력한 보스가 나타났다!</span></div>
+<div id="dungeonChestOverlay" role="dialog" aria-modal="true" aria-labelledby="dungeonChestTitle">
+ <div id="dungeonChestCard"><div style="font-size:64px">🎁</div><h2 id="dungeonChestTitle">던전 보물상자 개봉!</h2><p>던전 보스 처치 보상 재료를 획득했어!</p><div id="dungeonLoot"></div><button id="closeDungeonChest">확인</button></div>
+</div>
 <div id="inventoryOverlay" role="dialog" aria-modal="true" aria-labelledby="inventoryTitle">
  <div id="inventoryWindow">
   <div id="inventoryHeader">
@@ -247,6 +268,17 @@ h1{font-size:clamp(18px,3vw,25px)}
  <small>레벨을 올리면 새로운 스테이지가 열립니다. 전투 중에는 스테이지를 바꿀 수 없습니다.</small>
 </div>
 
+<div class="panel" id="dungeonPanel">
+ <h3>🏰 스테이지 던전</h3>
+ <p id="dungeonStatus">각 스테이지 보스를 처치하면 해당 던전이 열려!</p>
+ <div id="dungeonMaterials"></div>
+ <div id="dungeonControls" style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:12px">
+  <button id="startDungeon">🏰 현재 스테이지 던전 입장</button>
+  <button id="openDungeonChest" disabled>🎁 보물상자 열기</button>
+ </div>
+ <p id="dungeonCraftStatus" class="boss-hint">각 던전 보스검은 해당 던전 재료 3종을 모아 제작할 수 있어.</p>
+</div>
+
 <div class="gacha-layout">
  <div class="panel gacha-machine">
   <h3>🎰 검 뽑기 기계</h3>
@@ -269,7 +301,7 @@ h1{font-size:clamp(18px,3vw,25px)}
 </div>
 
 <div class="panel">
-<h3>🏆 보스 처치 기록</h3><div id="bossRecords"></div><p class="boss-hint">보스를 처음 처치하면 뽑기로 얻을 수 없는 보스 전용 검을 획득합니다!</p>
+<h3>🏆 보스 처치 기록</h3><div id="bossRecords"></div><p class="boss-hint">보스를 처치하면 해당 스테이지 던전이 열립니다. 던전 보물상자 재료 3종을 모아 전용 보스검을 제작하세요!</p>
 </div>
 
 <div class="panel">
@@ -277,7 +309,6 @@ h1{font-size:clamp(18px,3vw,25px)}
 <p>PC: WASD 또는 방향키로 이동, 스페이스바로 공격 (화면 조이스틱은 마우스로 드래그)</p>
 <p>스마트폰: 가로 화면에서 왼쪽 조이스틱으로 이동, 오른쪽 조이스틱을 몬스터 방향으로 조준한 뒤 놓아 공격</p>
 <p>몬스터를 약하게 만든 뒤 포획 버튼을 누르세요!</p>
-<button id="heal">❤️ 체력 회복 (50코인)</button>
 <button id="save">💾 저장하기</button>
 <button id="reset">새 게임</button>
 </div>
@@ -304,12 +335,20 @@ function syncMonster(){monsters=monsters.filter(m=>m.alive);monster=monsters[mon
 function awardDefeat(defeated){
  if(defeated.rewarded)return;defeated.rewarded=true;
  if(defeated.boss){
+  if(defeated.dungeonBoss){
+   coins+=Math.floor((defeated.reward||0)*.5);xp+=(defeated.level||1)*25;
+   dungeonBossActive=false;dungeonMode=false;dungeonChestReady=true;dungeonChestStage=currentStage;exploreSpawnTimer=0;
+   say("🏆 던전 최종 보스 "+defeated.name+" 격파! 보물상자를 획득했습니다!");
+  }else{
   const firstClear=!defeatedBosses.includes(defeated.name);
-  if(firstClear){defeatedBosses.push(defeated.name);coins+=defeated.reward||0;xp+=(defeated.level||1)*30;const prize=swords.find(s=>s.name===defeated.rewardSword);if(prize){if(!owned.includes(prize.name))owned.push(prize.name);if(prize.power>sword.power)sword=prize;}say("🏆 보스 "+defeated.name+" 격파! 보상 획득!");}
-  else{coins+=Math.floor((defeated.reward||0)/5);xp+=(defeated.level||1)*10;say("보스 재격파!");}
- }else{coins+=10+(defeated.level||1)*5;xp+=20+(defeated.level||1)*10;say(defeated.name+"을(를) 쓰러뜨렸다! 코인과 경험치 획득!");if(infiniteMode){waveKills++;if(waveKills>=10){wave++;waveKills=0;let prize=wave%10===0?200:0;if(wave===50)prize=1000;if(wave===100)prize=100000;if(prize){coins+=prize;say("♾️ "+wave+" 웨이브 달성! "+prize.toLocaleString()+"코인 획득!");}if(wave===50){
+  const prize=swords.find(s=>s.name===defeated.rewardSword);
+  // 보스검은 이제 보스 처치 즉시 지급하지 않고, 해금된 던전의 재료를 모아 제작한다.
+  if(firstClear){defeatedBosses.push(defeated.name);coins+=defeated.reward||0;xp+=(defeated.level||1)*30;say("🏆 보스 "+defeated.name+" 격파! 해당 스테이지 던전이 해금됐어! 보스검은 던전 재료로 제작할 수 있어.");}
+  else{coins+=Math.floor((defeated.reward||0)/5);xp+=(defeated.level||1)*10;say("보스 재격파! 던전 재료를 모아 전용 검을 제작하세요.");}
+  }
+ }else{coins+=defeated.elite?1000:10+(defeated.level||1)*5;xp+=defeated.elite?500:20+(defeated.level||1)*10;say(defeated.elite?"🏆 중간 보스 "+defeated.name+" 격파! 보너스 1,000코인과 경험치 획득!":defeated.name+"을(를) 쓰러뜨렸다! 코인과 경험치 획득!");if(dungeonMode){dungeonKills++;if(dungeonKills>=10){dungeonKills=0;dungeonWave++;say("🏰 던전 "+dungeonWave+"웨이브 도달!");if(dungeonWave>=10){dungeonWave=10;dungeonBossPending=true;dungeonMode=false;exploreSpawnTimer=0;say("👑 던전 최종 웨이브! 스테이지 보스가 나타납니다!");}}}if(infiniteMode){waveKills++;if(waveKills>=10){wave++;waveKills=0;let prize=wave%10===0?200:0;if(wave===50)prize=1000;if(wave===100)prize=100000;if(prize){coins+=prize;say("♾️ "+wave+" 웨이브 달성! "+prize.toLocaleString()+"코인 획득!");}if(wave===50){
   infiniteBossQueue=[];infiniteBossWaveActive=true;monsters=[];monster=null;
-  bosses.forEach((b,i)=>addMonster({...b,x:[170,630,170,630][i],y:[130,130,370,370][i],maxHp:b.hp,hp:b.hp,alive:true,attackWait:1.5,boss:true,skillWait:4+i*.35,skillWarning:0}));
+  bosses.filter(b=>b.stage<=3).forEach((b,i)=>addMonster({...b,x:[170,630,170,630][i],y:[130,130,370,370][i],maxHp:b.hp,hp:b.hp,alive:true,attackWait:1.5,boss:true,skillWait:4+i*.35,skillWarning:0}));
   showBossIntro(bosses[0]);say("👑 50 웨이브! 스테이지 보스 4마리가 동시에 등장합니다! 일반 몬스터는 보스들이 모두 쓰러질 때까지 등장하지 않습니다.");
  }if(wave===100){const ultimate={name:"무한 모드의 절대자",emoji:"🌌",hp:50000,attack:120,level:100,reward:0,skill:"무한 붕괴"};infiniteBossQueue=[ultimate];const prizeSword=swords.find(x=>x.name==="모든 걸 깨달은 자");if(prizeSword){if(!owned.includes(prizeSword.name))owned.push(prizeSword.name);sword=prizeSword;say("✨ 초월의 검 모든 걸 깨달은 자 획득!");}}}}}
  checkLevel();renderStages();updateUI();saveGame(true);
@@ -323,6 +362,8 @@ let message="숲을 탐험해 몬스터를 찾아보세요!";
 let lastTime=0;
 let exploring=false, exploreSpawnTimer=0;
 let infiniteMode=false, wave=0, waveKills=0, infiniteBossQueue=[], infiniteBossWaveActive=false;
+let dungeonMode=false,dungeonWave=1,dungeonKills=0,dungeonBossPending=false,dungeonBossActive=false,dungeonChestReady=false,dungeonChestStage=0;
+let dungeonMaterials={};
 let upgrades={};
 let enchanted={};
 
@@ -353,34 +394,86 @@ const swords=[
  {name:"수호자의 뿌리검",power:85,chance:0,rarity:"보스 전용",className:"epic",bossOnly:true},
  {name:"홍염의 심판",power:190,chance:0,rarity:"보스 전용",className:"legendary",bossOnly:true},
  {name:"빙결의 왕검",power:300,chance:0,rarity:"보스 전용",className:"legendary",bossOnly:true},
- {name:"천공의 파멸검",power:460,chance:0,rarity:"보스 전용",className:"mythic",bossOnly:true}
+ {name:"천공의 파멸검",power:460,chance:0,rarity:"보스 전용",className:"mythic",bossOnly:true},
+ {name:"차원 절단검",power:700,chance:0,rarity:"보스 전용",className:"mythic",bossOnly:true},
+ {name:"신성 창조검",power:900,chance:0,rarity:"보스 전용",className:"mythic",bossOnly:true},
+ {name:"염라의 심판검",power:1200,chance:0,rarity:"보스 전용",className:"mythic",bossOnly:true}
 ];
 
 const species=[
+ // 초록 숲
  {name:"슬라임",emoji:"🟢",hp:40,attack:5,level:1,stage:0},
- {name:"불꽃 여우",emoji:"🦊",hp:65,attack:9,level:2,stage:1},
  {name:"숲의 정령",emoji:"🌳",hp:90,attack:12,level:3,stage:0},
- {name:"아이스 드래곤",emoji:"🐉",hp:150,attack:20,level:5,stage:2},
- {name:"어둠의 군주",emoji:"👹",hp:220,attack:27,level:8,stage:3},
  {name:"바위 골렘",emoji:"🗿",hp:130,attack:16,level:4,stage:0},
- {name:"번개 독수리",emoji:"🦅",hp:190,attack:24,level:6,stage:3},
- {name:"얼음 늑대",emoji:"🐺",hp:260,attack:32,level:9,stage:2},
+ {name:"버섯 전사",emoji:"🍄",hp:105,attack:14,level:3,stage:0},
+ {name:"가시 멧돼지",emoji:"🐗",hp:165,attack:21,level:5,stage:0},
+ // 불타는 화산
+ {name:"불꽃 여우",emoji:"🦊",hp:65,attack:9,level:2,stage:1},
  {name:"용암 거인",emoji:"🌋",hp:360,attack:42,level:12,stage:1},
- {name:"별빛 수호자",emoji:"🌟",hp:500,attack:55,level:15,stage:3}
+ {name:"화산 박쥐",emoji:"🦇",hp:210,attack:29,level:8,stage:1},
+ {name:"잿불 도마뱀",emoji:"🦎",hp:280,attack:34,level:10,stage:1},
+ {name:"마그마 골렘",emoji:"♨️",hp:440,attack:48,level:14,stage:1},
+ // 얼음 동굴
+ {name:"아이스 드래곤",emoji:"🐉",hp:150,attack:20,level:5,stage:2},
+ {name:"얼음 늑대",emoji:"🐺",hp:260,attack:32,level:9,stage:2},
+ {name:"서리 망령",emoji:"👻",hp:330,attack:39,level:12,stage:2},
+ {name:"빙하 거북",emoji:"🐢",hp:470,attack:45,level:15,stage:2},
+ {name:"눈보라 거인",emoji:"☃️",hp:560,attack:58,level:17,stage:2},
+ // 번개의 성역
+ {name:"어둠의 군주",emoji:"👹",hp:220,attack:27,level:8,stage:3},
+ {name:"번개 독수리",emoji:"🦅",hp:190,attack:24,level:6,stage:3},
+ {name:"별빛 수호자",emoji:"🌟",hp:500,attack:55,level:15,stage:3},
+ {name:"폭풍 사자",emoji:"🦁",hp:620,attack:66,level:19,stage:3},
+ {name:"천둥 기사",emoji:"🛡️",hp:720,attack:72,level:21,stage:3},
+ // 블랙홀
+ {name:"중력 슬라임",emoji:"⚫",hp:850,attack:82,level:23,stage:4},
+ {name:"공허 추적자",emoji:"🕳️",hp:1050,attack:95,level:25,stage:4},
+ {name:"암흑 성운체",emoji:"🌑",hp:1250,attack:108,level:27,stage:4},
+ {name:"왜곡된 거신",emoji:"🪨",hp:1550,attack:125,level:29,stage:4},
+ {name:"차원 포식자",emoji:"👾",hp:1850,attack:145,level:31,stage:4},
+ // 천계
+ {name:"구름 사도",emoji:"☁️",hp:1500,attack:120,level:25,stage:5},
+ {name:"빛의 수호천사",emoji:"😇",hp:1800,attack:140,level:28,stage:5},
+ {name:"성운 페가수스",emoji:"🐎",hp:2100,attack:155,level:30,stage:5},
+ {name:"태양의 기사",emoji:"🌞",hp:2500,attack:175,level:33,stage:5},
+ {name:"천상의 감시자",emoji:"👁️",hp:2900,attack:195,level:36,stage:5},
+ // 마계
+ {name:"지옥 사냥개",emoji:"🐕‍🦺",hp:2600,attack:185,level:32,stage:6},
+ {name:"핏빛 악마",emoji:"😈",hp:3000,attack:210,level:35,stage:6},
+ {name:"저주의 마녀",emoji:"🧙",hp:3400,attack:230,level:38,stage:6},
+ {name:"심연의 기사",emoji:"💀",hp:3900,attack:255,level:41,stage:6},
+ {name:"마왕의 파수꾼",emoji:"👿",hp:4500,attack:285,level:44,stage:6}
+];
+
+// 탐험 중 낮은 확률로 등장하는 스테이지별 중간 보스
+const stageMidBosses=[
+ {name:"고대 숲의 거목",emoji:"🌳",hp:1800,attack:85,level:12,stage:0},
+ {name:"화산 심장 파괴자",emoji:"🔥",hp:4200,attack:145,level:20,stage:1},
+ {name:"영겁의 빙룡",emoji:"🐲",hp:6500,attack:190,level:25,stage:2},
+ {name:"폭풍의 심판자",emoji:"🌩️",hp:9000,attack:240,level:30,stage:3},
+ {name:"블랙홀의 포식자",emoji:"🌀",hp:16000,attack:340,level:38,stage:4},
+ {name:"천계의 대천사",emoji:"👼",hp:22000,attack:420,level:45,stage:5},
+ {name:"마계의 군주",emoji:"👹",hp:30000,attack:520,level:52,stage:6}
 ];
 
 const bosses=[
  {name:"숲의 수호자",emoji:"🌲",hp:350,attack:18,level:5,stage:0,reward:150,skill:"뿌리 강타",rewardSword:"수호자의 뿌리검"},
  {name:"화염 드래곤",emoji:"🐲",hp:650,attack:30,level:8,stage:1,reward:300,skill:"화염 폭발",rewardSword:"홍염의 심판"},
  {name:"아이스 킹",emoji:"👑",hp:1000,attack:45,level:12,stage:2,reward:500,skill:"빙결 파동",rewardSword:"빙결의 왕검"},
- {name:"천공의 지배자",emoji:"⚡",hp:1600,attack:65,level:18,stage:3,reward:1000,skill:"천공 낙뢰",rewardSword:"천공의 파멸검"}
+ {name:"천공의 지배자",emoji:"⚡",hp:1600,attack:65,level:18,stage:3,reward:1000,skill:"천공 낙뢰",rewardSword:"천공의 파멸검"},
+ {name:"차원의 포식자",emoji:"🌀",hp:18000,attack:360,level:40,stage:4,reward:2500,skill:"차원 붕괴",rewardSword:"차원 절단검"},
+ {name:"창조의 대천사",emoji:"👼",hp:26000,attack:460,level:48,stage:5,reward:3500,skill:"천상의 심판",rewardSword:"신성 창조검"},
+ {name:"염라대왕",emoji:"👑",hp:36000,attack:580,level:56,stage:6,reward:5000,skill:"업화의 심판",rewardSword:"염라의 심판검"}
 ];
 
 const stages=[
- {name:"초록 숲",emoji:"🌲",unlock:1,background:"#79b65d",monsters:["슬라임","숲의 정령","바위 골렘"]},
- {name:"불타는 화산",emoji:"🌋",unlock:4,background:"#a94e36",monsters:["불꽃 여우","용암 거인"]},
- {name:"얼음 동굴",emoji:"❄️",unlock:7,background:"#6da9c9",monsters:["얼음 늑대","아이스 드래곤"]},
- {name:"번개의 성역",emoji:"⚡",unlock:10,background:"#6e65a8",monsters:["번개 독수리","어둠의 군주","별빛 수호자"]}
+ {name:"초록 숲",emoji:"🌲",unlock:1,background:"#79b65d",monsters:["슬라임","숲의 정령","바위 골렘","버섯 전사","가시 멧돼지"]},
+ {name:"불타는 화산",emoji:"🌋",unlock:4,background:"#a94e36",monsters:["불꽃 여우","용암 거인","화산 박쥐","잿불 도마뱀","마그마 골렘"]},
+ {name:"얼음 동굴",emoji:"❄️",unlock:7,background:"#6da9c9",monsters:["아이스 드래곤","얼음 늑대","서리 망령","빙하 거북","눈보라 거인"]},
+ {name:"번개의 성역",emoji:"⚡",unlock:10,background:"#6e65a8",monsters:["어둠의 군주","번개 독수리","별빛 수호자","폭풍 사자","천둥 기사"]},
+ {name:"블랙홀",emoji:"🌀",unlock:22,background:"#211b3b",monsters:["중력 슬라임","공허 추적자","암흑 성운체","왜곡된 거신","차원 포식자"]},
+ {name:"천계",emoji:"☁️",unlock:28,background:"#a9c9e8",monsters:["구름 사도","빛의 수호천사","성운 페가수스","태양의 기사","천상의 감시자"]},
+ {name:"마계",emoji:"😈",unlock:35,background:"#55233b",monsters:["지옥 사냥개","핏빛 악마","저주의 마녀","심연의 기사","마왕의 파수꾼"]}
 ];
 
 function say(t){message=t;$("status").textContent=t;}
@@ -439,7 +532,7 @@ function useEnchantedSkill(directionAngle=null){
 }
 
 function updateUI(){
- $("leaveExplore").style.display=(exploring||infiniteMode)?"inline-block":"none";
+ $("leaveExplore").style.display=(exploring||infiniteMode||dungeonMode||dungeonBossActive||dungeonBossPending)?"inline-block":"none";
  const waveDisplay=$("waveDisplay");
  waveDisplay.classList.toggle("active",infiniteMode);
  waveDisplay.textContent=infiniteMode?`♾️ 무한 모드 · ${wave} 웨이브 · 처치 ${waveKills}/10${infiniteBossQueue.length?" · 보스 대기 중":""}`:"";
@@ -452,6 +545,7 @@ function updateUI(){
  $("drawResult").textContent="현재 장착 검: "+sword.name+" (힘 "+getSwordPower()+")";
  renderDex();
  renderBossRecords();
+ renderDungeonUI();
  if($("inventoryOverlay").classList.contains("open"))renderInventory();
 }
 
@@ -496,6 +590,49 @@ function closeInventory(){
  $("inventoryOverlay").classList.remove("open");
 }
 
+const dungeonDrops=[
+ [{name:"고대 나무 심장",emoji:"🌳"},{name:"숲의 정수",emoji:"🍃"},{name:"수호자의 인장",emoji:"🪵"}],
+ [{name:"용암 핵",emoji:"🌋"},{name:"불꽃 결정",emoji:"🔥"},{name:"화염의 인장",emoji:"🔶"}],
+ [{name:"빙하 수정",emoji:"❄️"},{name:"서리 심장",emoji:"💎"},{name:"얼음 왕관 조각",emoji:"👑"}],
+ [{name:"번개 핵",emoji:"⚡"},{name:"폭풍 깃털",emoji:"🪶"},{name:"천둥의 인장",emoji:"🔱"}],
+ [{name:"공허 파편",emoji:"🕳️"},{name:"중력 핵",emoji:"⚫"},{name:"차원 문양",emoji:"🌀"}],
+ [{name:"천상의 깃털",emoji:"🪽"},{name:"신성한 빛 조각",emoji:"✨"},{name:"창조의 인장",emoji:"☀️"}],
+ [{name:"염라의 부적",emoji:"📜"},{name:"저승 불꽃",emoji:"🔥"},{name:"업화의 인장",emoji:"🔴"}]
+];
+const dungeonRecipes=[
+ {sword:"수호자의 뿌리검",count:5},{sword:"홍염의 심판",count:5},{sword:"빙결의 왕검",count:5},{sword:"천공의 파멸검",count:5},{sword:"차원 절단검",count:5},{sword:"신성 창조검",count:5},{sword:"염라의 심판검",count:5}
+];
+function materialCount(name){return dungeonMaterials[name]||0;}
+function renderDungeonUI(){
+ const stage=stages[currentStage],boss=bosses[currentStage],unlocked=defeatedBosses.includes(boss.name),drops=dungeonDrops[currentStage],recipe=dungeonRecipes[currentStage];
+ $("dungeonStatus").textContent=unlocked?`${stage.emoji} ${stage.name} 던전 해금! ${dungeonMode?`현재 ${dungeonWave}/10 웨이브 · 처치 ${dungeonKills}/10`:dungeonChestReady?"보물상자를 열 수 있어!":"10웨이브를 돌파하고 재료를 모아 보스검을 제작하자."}`:`🔒 ${boss.name}을(를) 처치하면 ${stage.name} 던전이 열려.`;
+ $("startDungeon").disabled=!unlocked||dungeonMode||exploring||infiniteMode||monsters.some(m=>m.alive)||dungeonChestReady;
+ $("startDungeon").textContent=dungeonMode?`🏰 던전 진행 중 (${dungeonWave}/10)`:`🏰 ${stage.name} 던전 입장`;
+ $("openDungeonChest").disabled=!dungeonChestReady;
+ $("dungeonMaterials").innerHTML=drops.map(item=>`<div class="dungeon-material-card"><b>${item.emoji} ${item.name}</b><p>보유: ${materialCount(item.name)} / ${recipe.count}</p></div>`).join("");
+ const canCraft=drops.every(item=>materialCount(item.name)>=recipe.count);
+ $("dungeonCraftStatus").innerHTML=`제작 목표: <b>${recipe.sword}</b> — 재료 3종 각각 ${recipe.count}개 필요. ${canCraft?`<button id="craftDungeonSword">⚒️ ${recipe.sword} 제작하기</button>`:"재료를 더 모아야 해!"}`;
+ const craftButton=$("craftDungeonSword");if(craftButton)craftButton.onclick=()=>craftDungeonSword(currentStage);
+}
+function craftDungeonSword(stageIndex){
+ const drops=dungeonDrops[stageIndex],recipe=dungeonRecipes[stageIndex];
+ if(!drops.every(item=>materialCount(item.name)>=recipe.count)){say("보스검 제작 재료가 부족합니다!");return;}
+ drops.forEach(item=>dungeonMaterials[item.name]-=recipe.count);
+ const weapon=swords.find(item=>item.name===recipe.sword);
+ if(weapon){owned.push(weapon.name);sword=weapon;}
+ updateUI();saveGame(true);say("⚔️ 던전 재료를 사용해 "+recipe.sword+" 제작 완료!");
+}
+function openDungeonChest(){
+ if(!dungeonChestReady)return;
+ const chestStage=dungeonChestStage;
+ const drops=dungeonDrops[chestStage],loot=[];
+ drops.forEach(item=>{const amount=1+Math.floor(Math.random()*3);dungeonMaterials[item.name]=(dungeonMaterials[item.name]||0)+amount;loot.push({...item,amount});});
+ dungeonChestReady=false;
+ $("dungeonLoot").innerHTML=loot.map(item=>`<div class="dungeon-loot-item">${item.emoji}<br>${item.name}<b>+${item.amount}</b></div>`).join("");
+ $("dungeonChestOverlay").classList.add("show");
+ updateUI();saveGame(true);
+}
+
 function renderBossRecords(){
  $("bossRecords").innerHTML=bosses.map(b=>{
   const cleared=defeatedBosses.includes(b.name);
@@ -505,10 +642,11 @@ function renderBossRecords(){
 
 function renderDex(){
  const cards=[...species.map(m=>({...m,boss:false,found:caught.includes(m.name)})),
+ ...stageMidBosses.map(m=>({...m,boss:false,elite:true,found:caught.includes(m.name)})),
  ...bosses.map(m=>({...m,boss:true,found:defeatedBosses.includes(m.name)}))];
  $("dexSummary").textContent=`발견한 몬스터 ${cards.filter(m=>m.found).length} / ${cards.length}`;
  $("dex").innerHTML=cards.map(m=>m.found?
- `<div class="dex-card"><div class="dex-emoji">${m.emoji}</div><h4>${m.boss?"👑 ":""}${m.name}</h4><p>📍 출현: ${stages[m.stage].name}${m.boss?" (보스)":""}</p><p>⚔️ 공격력: ${m.attack}</p><p>❤️ 체력: ${m.hp}</p></div>`:
+ `<div class="dex-card"><div class="dex-emoji">${m.emoji}</div><h4>${m.boss?"👑 ":m.elite?"💀 ":""}${m.name}</h4><p>📍 출현: ${stages[m.stage].name}${m.boss?" (보스)":m.elite?" (중간 보스)":""}</p><p>⚔️ 공격력: ${m.attack}</p><p>❤️ 체력: ${m.hp}</p></div>`:
  `<div class="dex-card locked"><div class="dex-emoji">❔</div><h4>???</h4><p>아직 발견하지 못했습니다.</p></div>`).join("");
 }
 
@@ -520,33 +658,49 @@ function renderStages(){
  }).join("");
  document.querySelectorAll("[data-stage]").forEach(button=>{
   button.onclick=()=>{
-   if(exploring||monsters.some(m=>m.alive)){say("탐험을 종료한 뒤 스테이지를 바꿀 수 있습니다!");return;}
+   if(exploring||infiniteMode||dungeonMode||dungeonBossActive||dungeonBossPending||dungeonChestReady||monsters.some(m=>m.alive)){say("현재 모드와 보물상자 보상을 먼저 마무리한 뒤 스테이지를 바꿀 수 있습니다!");return;}
    currentStage=Number(button.dataset.stage);
    renderStages();
    say(stages[currentStage].name+" 스테이지로 이동했습니다!");
   };
  });
  const bb=$("bossChallenge");
- bb.textContent=defeatedBosses.includes(bosses[currentStage].name)?"👑 보스 재도전 (보상 없음)":"👑 "+bosses[currentStage].name+" 도전";
- bb.disabled=monsters.some(m=>m.alive);
+ const stageBoss=bosses[currentStage];
+ if(stageBoss){
+  bb.textContent=defeatedBosses.includes(stageBoss.name)?"👑 보스 재도전 (보상 없음)":"👑 "+stageBoss.name+" 도전";
+  bb.disabled=monsters.some(m=>m.alive);
+ }else{
+  bb.textContent="⚠️ 중간 보스는 탐험 중 무작위 출현";
+  bb.disabled=true;
+ }
 }
 
 function spawnMonster(){
  let stage=stages[currentStage];
+ // 무한 모드는 기존 전체 몬스터 풀, 일반 탐험은 현재 스테이지 몬스터만 사용
  let pool=infiniteMode?species:species.filter(s=>stage.monsters.includes(s.name));
  if(!pool.length){say("이 스테이지의 몬스터를 만나려면 레벨을 더 올려야 합니다!");return;}
- let s=pool[Math.floor(Math.random()*pool.length)];
- addMonster({
-  ...s,
-  x:80+Math.random()*640,
-  y:70+Math.random()*340,
-  maxHp:infiniteMode?Math.floor((s.hp+level*5)*(1+wave*.12)):s.hp+level*5,
-  hp:infiniteMode?Math.floor((s.hp+level*5)*(1+wave*.12)):s.hp+level*5,
-  alive:true,
-  attackWait:0
- });
- say(s.name+"이(가) 나타났다!");
-  renderStages();
+ const isMidBoss=!infiniteMode&&exploring&&Math.random()<0.08;
+ let s=isMidBoss?stageMidBosses[currentStage]:pool[Math.floor(Math.random()*pool.length)];
+ const scale=infiniteMode?(1+wave*.12):1;
+ const hpValue=infiniteMode?Math.floor((s.hp+level*5)*scale):Math.floor(s.hp+level*5);
+ const m={...s,x:80+Math.random()*640,y:70+Math.random()*340,
+  maxHp:isMidBoss?Math.floor(hpValue*1.7):hpValue,
+  hp:isMidBoss?Math.floor(hpValue*1.7):hpValue,
+  attack:isMidBoss?Math.floor(s.attack*1.35):s.attack,
+  alive:true,attackWait:0,elite:isMidBoss};
+ addMonster(m);
+ if(isMidBoss){showBossIntro(m);say("⚠️ 희귀 중간 보스 "+s.name+" 등장! 강력한 적을 조심하세요!");}
+ else say(s.name+"이(가) 나타났다!");
+ renderStages();
+}
+
+function spawnDungeonMonster(){
+ const pool=species.filter(m=>stages[currentStage].monsters.includes(m.name));
+ if(!pool.length)return;
+ const base=pool[Math.floor(Math.random()*pool.length)],scale=1+dungeonWave*.18;
+ const hpValue=Math.floor((base.hp+level*5)*scale);
+ addMonster({...base,x:45+Math.random()*710,y:45+Math.random()*390,hp:hpValue,maxHp:hpValue,attack:Math.floor(base.attack*scale),alive:true,attackWait:.2});
 }
 
 function showBossIntro(b){
@@ -564,6 +718,7 @@ function spawnBoss(){
  if(exploring){say("보스 도전 전에 탐험을 종료하세요!");return;}
  if(monsters.some(m=>m.alive)){say("전투가 끝난 뒤 보스에게 도전할 수 있습니다!");return;}
  const b=bosses[currentStage];
+ if(!b){say("이 스테이지에는 별도 보스 도전이 없습니다. 탐험 중 중간 보스를 만나보세요!");return;}
  addMonster({...b,x:player.x>400?180:620,y:240,maxHp:b.hp,hp:b.hp,alive:true,attackWait:1.5,boss:true,skillWait:4,skillWarning:0});
  showBossIntro(b);
  say("⚠️ 보스 "+b.name+" 등장! 조심해!");
@@ -767,6 +922,7 @@ function handleDeath(){
  const lostMonsterName=monster?.name||"몬스터";
  monsters=[];monster=null;
  if(infiniteMode){infiniteMode=false;wave=0;waveKills=0;infiniteBossQueue=[];infiniteBossWaveActive=false;exploring=false;exploreSpawnTimer=0;}
+ if(dungeonMode||dungeonBossActive||dungeonBossPending){dungeonMode=false;dungeonBossActive=false;dungeonBossPending=false;dungeonWave=1;dungeonKills=0;exploreSpawnTimer=0;}
  hp=getMaxHp();
  attackTimer=0;aimActive=false;
  // 사망하면 탐험과 무한 모드를 모두 종료한다.
@@ -785,7 +941,8 @@ function update(dt){
  if(invincible>0)invincible-=dt;
 
  if(infiniteMode&&infiniteBossWaveActive&&!monsters.some(m=>m.alive&&m.boss)){infiniteBossWaveActive=false;say("🏆 50 웨이브 보스를 모두 물리쳤습니다! 일반 몬스터가 다시 등장합니다.");}
- if(exploring||infiniteMode){exploreSpawnTimer-=dt;if(exploreSpawnTimer<=0){if(infiniteMode&&infiniteBossWaveActive){/* 50웨이브 보스전 중에는 일반 몬스터 스폰 중지 */}else if(infiniteMode&&infiniteBossQueue.length&&monsters.length===0){const b=infiniteBossQueue.shift();addMonster({...b,x:player.x>400?180:620,y:240,maxHp:b.hp,hp:b.hp,alive:true,attackWait:1.5,boss:true,skillWait:4,skillWarning:0});showBossIntro(b);say("♾️ 웨이브 보스 등장: "+b.name);}else if(infiniteMode&&infiniteBossQueue.length===0){spawnMonster();}else if(exploring&&!infiniteMode&&monsters.length===0){spawnMonster();}exploreSpawnTimer=infiniteMode?(wave>50?.3:.5):1;}}
+ if(exploring||infiniteMode||dungeonMode){exploreSpawnTimer-=dt;if(exploreSpawnTimer<=0){if(infiniteMode&&infiniteBossWaveActive){/* 50웨이브 보스전 중에는 일반 몬스터 스폰 중지 */}else if(infiniteMode&&infiniteBossQueue.length&&monsters.length===0){const b=infiniteBossQueue.shift();addMonster({...b,x:player.x>400?180:620,y:240,maxHp:b.hp,hp:b.hp,alive:true,attackWait:1.5,boss:true,skillWait:4,skillWarning:0});showBossIntro(b);say("♾️ 웨이브 보스 등장: "+b.name);}else if(infiniteMode&&infiniteBossQueue.length===0){spawnMonster();}else if(dungeonMode){spawnDungeonMonster();}else if(exploring&&!infiniteMode&&monsters.length===0){spawnMonster();}exploreSpawnTimer=(infiniteMode?(wave>50?.3:.5):dungeonMode?.5:1);}}
+ if(dungeonBossPending&&!monsters.some(m=>m.alive)){const b=bosses[currentStage];dungeonBossPending=false;dungeonBossActive=true;addMonster({...b,x:player.x>400?180:620,y:240,maxHp:b.hp,hp:b.hp,alive:true,attackWait:1.5,boss:true,dungeonBoss:true,skillWait:4,skillWarning:0});showBossIntro(b);say("👑 던전 최종 보스 "+b.name+" 등장!");}
  for(const m of [...monsters]){if(!m.alive)continue;let dx=player.x-m.x,dy=player.y-m.y,d=Math.hypot(dx,dy);if(d>48){m.x+=dx/d*45*dt;m.y+=dy/d*45*dt;}else if(m.attackWait<=0&&invincible<=0){const incoming=m.attack||8;hp-=incoming;invincible=.8;m.attackWait=1.2;say(m.name+"에게 "+incoming+"의 피해를 받았다!");if(hp<=0){handleDeath();return;}updateUI();}m.attackWait-=dt;if(m.boss){m.skillWait-=dt;if(m.skillWait<=0&&m.skillWarning<=0){m.skillWarning=1.6;m.skillX=player.x;m.skillY=player.y;m.skillRadius=m.name==="천공의 지배자"?185:150;m.skillWait=5.5;say("⚠️ "+m.name+"의 "+m.skill+" 준비! 멀리 피하세요!");}if(m.skillWarning>0){m.skillWarning-=dt;if(m.skillWarning<=0){const sd=Math.hypot(player.x-m.skillX,player.y-m.skillY);if(sd<m.skillRadius&&invincible<=0){const damage=Math.ceil(m.attack*1.6);hp-=damage;invincible=1;say("💥 "+m.skill+" 적중! "+damage+" 피해!");if(hp<=0){handleDeath();return;}updateUI();}else say("멋지게 회피했다! "+m.skill+"을 피했습니다.");}}}}syncMonster();
  if(bossIntroTimer>0){bossIntroTimer-=dt;if(bossIntroTimer<=0){$("bossIntro").classList.remove("show");}}
 }
@@ -855,29 +1012,38 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape")closeInventory();});
 
 
 $("specialAttack").onclick=()=>useEnchantedSkill(aimMagnitude>.12?aimAngle:null);
+$("startDungeon").onclick=()=>{
+ const boss=bosses[currentStage];if(!defeatedBosses.includes(boss.name)){say(boss.name+"을(를) 먼저 처치해야 던전이 열립니다!");return;}
+ if(exploring||infiniteMode||dungeonMode||monsters.some(m=>m.alive)){say("다른 전투를 먼저 종료하세요!");return;}
+ dungeonMode=true;dungeonWave=1;dungeonKills=0;dungeonBossPending=false;dungeonBossActive=false;dungeonChestReady=false;monsters=[];monster=null;exploreSpawnTimer=0;
+ updateUI();spawnDungeonMonster();say("🏰 "+stages[currentStage].name+" 던전 시작! 0.5초마다 몬스터가 등장합니다.");saveGame(true);
+};
+$("openDungeonChest").onclick=openDungeonChest;
+$("closeDungeonChest").onclick=()=>$("dungeonChestOverlay").classList.remove("show");
+$("dungeonChestOverlay").addEventListener("click",e=>{if(e.target.id==="dungeonChestOverlay")$("dungeonChestOverlay").classList.remove("show");});
 $("capture").onclick=capture;
 $("draw").onclick=drawSword;
 $("bossChallenge").onclick=spawnBoss;
 $("infiniteMode").onclick=()=>{
- if(infiniteMode||exploring||monster?.alive){say("현재 전투나 모드를 먼저 끝내세요!");return;}
+ if(infiniteMode||exploring||dungeonMode||monster?.alive){say("현재 전투나 모드를 먼저 끝내세요!");return;}
  infiniteMode=true;exploring=false;monsters=[];monster=null;wave=1;waveKills=0;infiniteBossQueue=[];infiniteBossWaveActive=false;exploreSpawnTimer=0;
  updateUI();
  say("♾️ 무한 모드 시작! 몬스터 10마리를 처치하면 다음 웨이브로 진행합니다.");spawnMonster();updateUI();saveGame(true);
 };
 $("explore").onclick=()=>{
- if(exploring||infiniteMode)return;
+ if(exploring||infiniteMode||dungeonMode)return;
  exploring=true;monsters=[];monster=null;exploreSpawnTimer=0;
  if(!monsters.some(m=>m.alive))spawnMonster();
  updateUI();say("🌲 연속 탐험 시작! 나가기 버튼을 누르면 종료됩니다.");saveGame(true);
 };
 $("leaveExplore").onclick=()=>{
- exploring=false;infiniteMode=false;wave=0;waveKills=0;infiniteBossQueue=[];infiniteBossWaveActive=false;exploreSpawnTimer=0;
+ exploring=false;infiniteMode=false;dungeonMode=false;dungeonBossActive=false;dungeonBossPending=false;dungeonWave=1;dungeonKills=0;dungeonChestReady=false;wave=0;waveKills=0;infiniteBossQueue=[];infiniteBossWaveActive=false;exploreSpawnTimer=0;
  monsters=[];monster=null;
  updateUI();say("탐험을 종료했습니다.");saveGame(true);
 };
-$("heal").onclick=()=>{
+$("arenaHeal").onclick=()=>{
  if(coins<50){say("코인이 부족합니다! 회복에는 50코인이 필요합니다.");return;}
- if(hp>=100){say("체력이 이미 가득 찼습니다!");return;}
+ if(hp>=getMaxHp()){say("체력이 이미 가득 찼습니다!");return;}
  coins-=50;hp=getMaxHp();updateUI();saveGame(true);say("체력을 모두 회복했습니다!");
 };
 
@@ -904,7 +1070,7 @@ $("reset").onclick=()=>{
 };
 
 function saveGame(silent=false){
- const data={coins,level,xp,hp,sword,owned,caught,defeatedBosses,currentStage,upgrades,stats,enchanted};
+ const data={coins,level,xp,hp,sword,owned,caught,defeatedBosses,currentStage,upgrades,stats,enchanted,dungeonMaterials,dungeonChestReady,dungeonChestStage};
  localStorage.setItem("swordCollectorSave",JSON.stringify(data));
  if(!silent)say("💾 게임을 저장했습니다!");
 }
@@ -927,6 +1093,8 @@ function loadGame(){
    defeatedBosses=d.defeatedBosses??[];
   upgrades=d.upgrades??{};
   enchanted=d.enchanted??{};
+  dungeonMaterials=d.dungeonMaterials??{};
+  dungeonChestReady=d.dungeonChestReady??false;dungeonChestStage=d.dungeonChestStage??0;
   currentStage=Math.min(d.currentStage??0,stages.length-1);
   if(level<stages[currentStage].unlock)currentStage=0;
  }catch(e){console.log("저장 데이터 불러오기 실패");}
