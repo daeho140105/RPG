@@ -164,6 +164,8 @@ h1{font-size:clamp(18px,3vw,25px)}
 #status{margin:6px auto;min-height:20px;font-size:13px}
 #utilityControls{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin:6px auto 12px}
 #utilityControls button{min-width:90px;padding:9px 12px}
+#specialSkillBar{display:flex;justify-content:center;margin:6px auto 8px}
+#specialSkillBar button{min-width:190px;padding:11px 20px;font-size:15px}
 #rotateNotice{display:none}
 #orientationButton{display:inline-block;margin:4px auto 7px;padding:9px 16px;border:2px solid #ffdc83;border-radius:12px;background:#263852;color:#fff;font-weight:bold;font-size:14px;cursor:pointer}
 @media(max-width:800px){
@@ -193,6 +195,8 @@ h1{font-size:clamp(18px,3vw,25px)}
  #status{margin:3px auto;min-height:16px;font-size:11px;}
  #utilityControls{gap:5px;margin:3px auto 6px;}
  #utilityControls button{min-width:0;padding:6px 9px;font-size:11px;}
+ #specialSkillBar{margin:3px auto 5px}
+ #specialSkillBar button{min-width:160px;padding:8px 14px;font-size:12px}
  .panel{max-width:min(96vw,800px);}
 }
 @media screen and (orientation:landscape) and (max-height:430px) and (max-width:950px){
@@ -233,6 +237,15 @@ h1{font-size:clamp(18px,3vw,25px)}
 </div>
 <button id="arenaHeal" type="button">❤️ 체력 회복<br>(50코인)</button>
 </div>
+<div id="utilityControls">
+ <button class="action" id="capture">🪄 포획</button>
+ <button class="action" id="explore">🌲 탐험 시작</button><button class="action" id="infiniteMode">♾️ 무한 모드 시작</button><button class="action" id="specialAttack">⭐ 인첸트 스킬</button><button class="action" id="leaveExplore" style="background:#a83232;display:none">🚪 모드 종료</button>
+</div>
+
+<div class="panel" id="stagePanel">
+ <h3>🗺️ 스테이지 선택</h3>
+ <p id="stageInfo">현재 스테이지: 초록 숲</p>
+ <div id="stageButtons"></div>
 <div id="status">숲을 탐험해 몬스터를 찾아보세요!</div>
 <div class="panel" id="statUpgradePanel">
  <h3>📈 스탯 강화</h3><p>강화 1회당 1,000코인이 필요해. 강화한 스탯은 저장돼!</p>
@@ -255,16 +268,9 @@ h1{font-size:clamp(18px,3vw,25px)}
  </div>
 </div>
 
-<div id="utilityControls">
- <button class="action" id="capture">🪄 포획</button>
- <button class="action" id="explore">🌲 탐험 시작</button><button class="action" id="infiniteMode">♾️ 무한 모드 시작</button><button class="action" id="leaveExplore" style="background:#a83232;display:none">🚪 모드 종료</button>
- <button class="action" id="specialAttack">⭐ 인첸트 스킬</button>
-</div>
 
-<div class="panel" id="stagePanel">
- <h3>🗺️ 스테이지 선택</h3>
- <p id="stageInfo">현재 스테이지: 초록 숲</p>
- <div id="stageButtons"></div><button id="bossChallenge">👑 이 스테이지 보스 도전</button>
+
+<button id="bossChallenge">👑 이 스테이지 보스 도전</button>
  <small>레벨을 올리면 새로운 스테이지가 열립니다. 전투 중에는 스테이지를 바꿀 수 없습니다.</small>
 </div>
 
