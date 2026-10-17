@@ -195,14 +195,6 @@ h1{font-size:clamp(18px,3vw,25px)}
  #utilityControls button{min-width:0;padding:6px 9px;font-size:11px;}
  .panel{max-width:min(96vw,800px);}
 }
-/* 맵 바로 아래 핵심 전투 버튼 */
-#utilityControls{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;width:min(96vw,800px);margin:8px auto 5px;padding:0 4px}
-#utilityControls .action{width:100%;min-width:0;min-height:52px;margin:0;padding:9px 4px;font-size:clamp(12px,2vw,15px);white-space:normal}
-#utilityControls #specialAttack{background:#8053a5;border:2px solid #c9a5ff}
-#utilityControls #attackButton{background:#b34b3d;border:2px solid #ffb3a8}
-#modeControls{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin:4px auto 8px}
-#modeControls .action{min-width:120px}
-@media(max-width:520px){#utilityControls{gap:5px;width:100%;padding:0}#utilityControls .action{min-height:48px;font-size:12px;padding:7px 2px}}
 @media screen and (orientation:landscape) and (max-height:430px) and (max-width:950px){
  header small{display:none;}
  #stats{padding:2px 4px;}
@@ -242,16 +234,6 @@ h1{font-size:clamp(18px,3vw,25px)}
 <button id="arenaHeal" type="button">❤️ 체력 회복<br>(50코인)</button>
 </div>
 <div id="status">숲을 탐험해 몬스터를 찾아보세요!</div>
-<div id="utilityControls" aria-label="전투 조작 버튼">
- <button class="action" id="explore">🌲 탐험</button>
- <button class="action" id="capture">🪄 포획</button>
- <button class="action" id="attackButton">⚔️ 공격</button>
- <button class="action" id="specialAttack">⭐ 특수 스킬</button>
-</div>
-<div id="modeControls">
- <button class="action" id="infiniteMode">♾️ 무한 모드 시작</button>
- <button class="action" id="leaveExplore" style="background:#a83232;display:none">🚪 모드 종료</button>
-</div>
 <div class="panel" id="statUpgradePanel">
  <h3>📈 스탯 강화</h3><p>강화 1회당 1,000코인이 필요해. 강화한 스탯은 저장돼!</p>
  <div class="stat-row"><span>⚔️ 공격력 배율: <b id="attackStatValue">×1</b></span><button id="upgradeAttack">공격력 강화 (1,000코인)</button></div>
@@ -271,6 +253,12 @@ h1{font-size:clamp(18px,3vw,25px)}
   <p>보유한 검을 장착하거나 같은 검으로 강화할 수 있어. 인첸트는 검마다 1,000코인이 필요하며 고유 특수 스킬을 영구적으로 부여해!</p>
   <div id="inventoryItems"></div>
  </div>
+</div>
+
+<div id="utilityControls">
+ <button class="action" id="capture">🪄 포획</button>
+ <button class="action" id="explore">🌲 탐험 시작</button><button class="action" id="infiniteMode">♾️ 무한 모드 시작</button><button class="action" id="leaveExplore" style="background:#a83232;display:none">🚪 모드 종료</button>
+ <button class="action" id="specialAttack">⭐ 인첸트 스킬</button>
 </div>
 
 <div class="panel" id="stagePanel">
@@ -354,17 +342,9 @@ function awardDefeat(defeated){
   }else{
   const firstClear=!defeatedBosses.includes(defeated.name);
   const prize=swords.find(s=>s.name===defeated.rewardSword);
-  if(firstClear){
-   defeatedBosses.push(defeated.name);
-   coins+=defeated.reward||0;
-   xp+=(defeated.level||1)*30;
-   if(prize&&!owned.includes(prize.name))owned.push(prize.name);
-   say("🏆 보스 "+defeated.name+" 격파! "+(prize?"⚔️ 보스 드롭 검 "+prize.name+" 획득! ":"")+"던전도 해금됐어!");
-  }else{
-   coins+=Math.floor((defeated.reward||0)/5);
-   xp+=(defeated.level||1)*10;
-   say("보스 재격파! 첫 처치 보스검은 이미 획득했어.");
-  }
+  // 보스검은 이제 보스 처치 즉시 지급하지 않고, 해금된 던전의 재료를 모아 제작한다.
+  if(firstClear){defeatedBosses.push(defeated.name);coins+=defeated.reward||0;xp+=(defeated.level||1)*30;say("🏆 보스 "+defeated.name+" 격파! 해당 스테이지 던전이 해금됐어! 보스검은 던전 재료로 제작할 수 있어.");}
+  else{coins+=Math.floor((defeated.reward||0)/5);xp+=(defeated.level||1)*10;say("보스 재격파! 던전 재료를 모아 전용 검을 제작하세요.");}
   }
  }else{coins+=defeated.elite?1000:10+(defeated.level||1)*5;xp+=defeated.elite?500:20+(defeated.level||1)*10;say(defeated.elite?"🏆 중간 보스 "+defeated.name+" 격파! 보너스 1,000코인과 경험치 획득!":defeated.name+"을(를) 쓰러뜨렸다! 코인과 경험치 획득!");if(dungeonMode){dungeonKills++;if(dungeonKills>=10){dungeonKills=0;dungeonWave++;say("🏰 던전 "+dungeonWave+"웨이브 도달!");if(dungeonWave>=10){dungeonWave=10;dungeonBossPending=true;dungeonMode=false;exploreSpawnTimer=0;say("👑 던전 최종 웨이브! 스테이지 보스가 나타납니다!");}}}if(infiniteMode){waveKills++;if(waveKills>=10){wave++;waveKills=0;let prize=wave%10===0?200:0;if(wave===50)prize=1000;if(wave===100)prize=100000;if(prize){coins+=prize;say("♾️ "+wave+" 웨이브 달성! "+prize.toLocaleString()+"코인 획득!");}if(wave===50){
   infiniteBossQueue=[];infiniteBossWaveActive=true;monsters=[];monster=null;
@@ -398,7 +378,8 @@ const trees=[
 function getSwordLevel(){return upgrades[sword.name]||0;}
 function getSwordPower(){return Math.floor(sword.power*(1+getSwordLevel()*.18)*stats.attack);}
 function getBaseAttackRange(){return sword.name==="모든 걸 깨달은 자"?300:58 + Math.max(0,Number(sword.power)||0)*0.075 + getSwordLevel()*2;}
-function getAttackRange(){return Math.floor(getBaseAttackRange()*stats.range);}
+function getRangeMultiplier(){return 1+(Math.max(0,Number(stats.range)||0)-1)*0.15;}
+function getAttackRange(){return Math.floor(getBaseAttackRange()*getRangeMultiplier());}
 
 const swords=[
  {name:"나무검",power:10,chance:35,rarity:"일반",className:"common"},
@@ -560,12 +541,12 @@ function updateUI(){
  const waveDisplay=$("waveDisplay");
  waveDisplay.classList.toggle("active",infiniteMode);
  waveDisplay.textContent=infiniteMode?`♾️ 무한 모드 · ${wave} 웨이브 · 처치 ${waveKills}/10${infiniteBossQueue.length?" · 보스 대기 중":""}`:"";
- $("explore").textContent=exploring?"🌲 탐험 중...":"🌲 탐험";
+ $("explore").textContent=exploring?"🌲 탐험 중...":"🌲 탐험 시작";
  $("coins").textContent=coins;$("level").textContent=level;
  $("hp").textContent=Math.max(0,Math.floor(hp));$("maxHp").textContent=getMaxHp();$("sword").textContent=sword.name;
  $("specialAttack").disabled=!enchanted[sword.name];
- $("specialAttack").textContent=enchanted[sword.name]?"⭐ "+(sword.name==="모든 걸 깨달은 자"?"초월 검기":"특수 스킬"):"🔒 인첸트 필요";
- $("attackStatValue").textContent="×"+stats.attack;$("rangeStatValue").textContent="×"+stats.range;$("healthStatValue").textContent="+"+(stats.health*100);$("healthStatMax").textContent=getMaxHp();
+ $("specialAttack").textContent=enchanted[sword.name]?"⭐ "+(sword.name==="모든 걸 깨달은 자"?"초월 검기":"인첸트 스킬 사용"):"🔒 인첸트 필요";
+ $("attackStatValue").textContent="×"+stats.attack;$("rangeStatValue").textContent="×"+getRangeMultiplier().toFixed(2);$("healthStatValue").textContent="+"+(stats.health*100);$("healthStatMax").textContent=getMaxHp();
  $("drawResult").textContent="현재 장착 검: "+sword.name+" (힘 "+getSwordPower()+")";
  renderDex();
  renderBossRecords();
@@ -1036,7 +1017,6 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape")closeInventory();});
 
 
 $("specialAttack").onclick=()=>useEnchantedSkill(aimMagnitude>.12?aimAngle:null);
-$("attackButton").onclick=()=>attack(aimMagnitude>.12?aimAngle:null);
 $("startDungeon").onclick=()=>{
  const boss=bosses[currentStage];if(!defeatedBosses.includes(boss.name)){say(boss.name+"을(를) 먼저 처치해야 던전이 열립니다!");return;}
  if(exploring||infiniteMode||dungeonMode||monsters.some(m=>m.alive)){say("다른 전투를 먼저 종료하세요!");return;}
