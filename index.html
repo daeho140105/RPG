@@ -348,9 +348,17 @@ function awardDefeat(defeated){
   }else{
   const firstClear=!defeatedBosses.includes(defeated.name);
   const prize=swords.find(s=>s.name===defeated.rewardSword);
-  // 보스검은 이제 보스 처치 즉시 지급하지 않고, 해금된 던전의 재료를 모아 제작한다.
-  if(firstClear){defeatedBosses.push(defeated.name);coins+=defeated.reward||0;xp+=(defeated.level||1)*30;say("🏆 보스 "+defeated.name+" 격파! 해당 스테이지 던전이 해금됐어! 보스검은 던전 재료로 제작할 수 있어.");}
-  else{coins+=Math.floor((defeated.reward||0)/5);xp+=(defeated.level||1)*10;say("보스 재격파! 던전 재료를 모아 전용 검을 제작하세요.");}
+  if(firstClear){
+   defeatedBosses.push(defeated.name);coins+=defeated.reward||0;xp+=(defeated.level||1)*30;
+   if(prize&&!owned.includes(prize.name)){
+    owned.push(prize.name);
+    say("🏆 보스 "+defeated.name+" 격파! 보스 전용 검 「"+prize.name+"」을(를) 획득했어! 인벤토리에서 확인해 봐!");
+   }else if(prize){
+    say("🏆 보스 "+defeated.name+" 격파! 이미 보유한 보스검이야. 스테이지 던전이 해금됐어!");
+   }else{
+    say("🏆 보스 "+defeated.name+" 격파! 보상 검 데이터를 찾지 못했어. 스테이지 던전이 해금됐어!");
+   }
+  }else{coins+=Math.floor((defeated.reward||0)/5);xp+=(defeated.level||1)*10;say("보스 재격파! 코인과 경험치를 획득했어.");}
   }
  }else{coins+=defeated.elite?1000:10+(defeated.level||1)*5;xp+=defeated.elite?500:20+(defeated.level||1)*10;say(defeated.elite?"🏆 중간 보스 "+defeated.name+" 격파! 보너스 1,000코인과 경험치 획득!":defeated.name+"을(를) 쓰러뜨렸다! 코인과 경험치 획득!");if(dungeonMode){dungeonKills++;if(dungeonKills>=10){dungeonKills=0;dungeonWave++;say("🏰 던전 "+dungeonWave+"웨이브 도달!");if(dungeonWave>=10){dungeonWave=10;dungeonBossPending=true;dungeonMode=false;exploreSpawnTimer=0;say("👑 던전 최종 웨이브! 스테이지 보스가 나타납니다!");}}}if(infiniteMode){waveKills++;if(waveKills>=10){wave++;waveKills=0;let prize=wave%10===0?200:0;if(wave===50)prize=1000;if(wave===100)prize=100000;if(prize){coins+=prize;say("♾️ "+wave+" 웨이브 달성! "+prize.toLocaleString()+"코인 획득!");}if(wave===50){
   infiniteBossQueue=[];infiniteBossWaveActive=true;monsters=[];monster=null;
@@ -464,13 +472,13 @@ const stageMidBosses=[
 ];
 
 const bosses=[
- {name:"숲의 수호자",emoji:"🌲",hp:350,attack:18,level:5,stage:0,reward:150,skill:"뿌리 강타",rewardSword:"수호자의 뿌리검"},
- {name:"화염 드래곤",emoji:"🐲",hp:650,attack:30,level:8,stage:1,reward:300,skill:"화염 폭발",rewardSword:"홍염의 심판"},
- {name:"아이스 킹",emoji:"👑",hp:1000,attack:45,level:12,stage:2,reward:500,skill:"빙결 파동",rewardSword:"빙결의 왕검"},
- {name:"천공의 지배자",emoji:"⚡",hp:1600,attack:65,level:18,stage:3,reward:1000,skill:"천공 낙뢰",rewardSword:"천공의 파멸검"},
- {name:"차원의 포식자",emoji:"🌀",hp:18000,attack:360,level:40,stage:4,reward:2500,skill:"차원 붕괴",rewardSword:"차원 절단검"},
- {name:"창조의 대천사",emoji:"👼",hp:26000,attack:460,level:48,stage:5,reward:3500,skill:"천상의 심판",rewardSword:"신성 창조검"},
- {name:"염라대왕",emoji:"👑",hp:36000,attack:580,level:56,stage:6,reward:5000,skill:"업화의 심판",rewardSword:"염라의 심판검"}
+ {name:"숲의 수호자",emoji:"🌲",hp:350,attack:18,level:5,stage:0,reward:150,skill:"뿌리 강타",skillType:"root",rewardSword:"수호자의 뿌리검"},
+ {name:"화염 드래곤",emoji:"🐲",hp:650,attack:30,level:8,stage:1,reward:300,skill:"화염 폭발",skillType:"fire",rewardSword:"홍염의 심판"},
+ {name:"아이스 킹",emoji:"👑",hp:1000,attack:45,level:12,stage:2,reward:500,skill:"빙결 파동",skillType:"ice",rewardSword:"빙결의 왕검"},
+ {name:"천공의 지배자",emoji:"⚡",hp:1600,attack:65,level:18,stage:3,reward:1000,skill:"천공 낙뢰",skillType:"lightning",rewardSword:"천공의 파멸검"},
+ {name:"차원의 포식자",emoji:"🌀",hp:18000,attack:360,level:40,stage:4,reward:2500,skill:"차원 붕괴",skillType:"void",rewardSword:"차원 절단검"},
+ {name:"창조의 대천사",emoji:"👼",hp:26000,attack:460,level:48,stage:5,reward:3500,skill:"천상의 심판",skillType:"holy",rewardSword:"신성 창조검"},
+ {name:"염라대왕",emoji:"👑",hp:36000,attack:580,level:56,stage:6,reward:5000,skill:"업화의 심판",skillType:"hell",rewardSword:"염라의 심판검"}
 ];
 
 const stages=[
@@ -801,7 +809,7 @@ function render(){
 
  for(const m of monsters){if(!m.alive)continue;
   drawCharacter(m.x,m.y,m.emoji,m.boss?58:35);
-  if(m.boss&&m.skillWarning>0){const r=m.skillRadius||155;ctx.save();ctx.fillStyle="rgba(255,75,55,.16)";ctx.strokeStyle="rgba(255,220,120,.48)";ctx.lineWidth=3;ctx.setLineDash([9,7]);ctx.beginPath();ctx.arc(m.skillX??m.x,m.skillY??m.y,r,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.setLineDash([]);ctx.fillStyle="rgba(255,235,117,.85)";ctx.font="bold 16px Arial";ctx.textAlign="center";ctx.fillText("⚠ "+m.skill+"!",m.x,m.y-58);ctx.restore();}
+  if(m.boss&&m.skillWarning>0)drawBossSkillWarning(m);
   ctx.fillStyle="white";ctx.font="13px Arial";ctx.textAlign="center";ctx.fillText(m.name,m.x,m.y-30);drawBar(m.x-24,m.y-23,48,6,m.hp,m.maxHp);ctx.font="bold 14px Arial";ctx.strokeStyle="#222";ctx.lineWidth=3;ctx.strokeText(Math.ceil(m.hp)+" / "+m.maxHp,m.x,m.y-37);ctx.fillText(Math.ceil(m.hp)+" / "+m.maxHp,m.x,m.y-37);
  }
 
@@ -943,6 +951,35 @@ function handleDeath(){
  say("💀 쓰러졌습니다! "+lostMonsterName+"은(는) 사라졌고 보상은 없습니다. 탐험/무한 모드가 종료됐으며 보유한 코인과 검은 유지됩니다.");
 }
 
+function bossSkillHitsPlayer(m){
+ const dx=player.x-m.skillX,dy=player.y-m.skillY,d=Math.hypot(dx,dy);
+ switch(m.skillType){
+  case "root": return d<145; // 숲의 뿌리 강타: 넓은 원형
+  case "fire": return d<190; // 화염 폭발: 매우 넓은 폭발
+  case "ice": return d<135; // 빙결 파동: 좁은 원형
+  case "lightning": return Math.abs(dx)<48||Math.abs(dy)<48; // 십자 낙뢰
+  case "void": return d>65&&d<220; // 차원 붕괴: 바깥 고리, 보스 가까이는 안전
+  case "holy": return Math.abs(dx)<55&&Math.abs(dy)<210 || Math.abs(dy)<55&&Math.abs(dx)<210; // 십자 심판
+  case "hell": return d<170; // 업화의 심판
+  default: return d<(m.skillRadius||150);
+ }
+}
+function drawBossSkillWarning(m){
+ const x=m.skillX??m.x,y=m.skillY??m.y,t=m.skillType;
+ ctx.save();ctx.fillStyle="rgba(255,75,55,.17)";ctx.strokeStyle="rgba(255,220,120,.8)";ctx.lineWidth=3;ctx.setLineDash([8,6]);
+ if(t==="lightning"||t==="holy"){
+  const w=t==="holy"?55:48,L=t==="holy"?210:420;
+  ctx.fillRect(x-w,y-L/2,w*2,L);ctx.strokeRect(x-w,y-L/2,w*2,L);
+  ctx.fillRect(x-L/2,y-w,L,w*2);ctx.strokeRect(x-L/2,y-w,L,w*2);
+ }else if(t==="void"){
+  ctx.beginPath();ctx.arc(x,y,220,0,Math.PI*2);ctx.arc(x,y,65,0,Math.PI*2,true);ctx.fill("evenodd");ctx.stroke();
+ }else{
+  const r=t==="fire"?190:t==="ice"?135:t==="hell"?170:145;
+  ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();ctx.stroke();
+ }
+ ctx.setLineDash([]);ctx.fillStyle="#fff08a";ctx.font="bold 16px Arial";ctx.textAlign="center";ctx.fillText("⚠ "+m.skill+"!",x,y-18);ctx.restore();
+}
+
 function update(dt){
  if(specialAttackCooldown>0)specialAttackCooldown=Math.max(0,specialAttackCooldown-dt);
  if(specialSlash){specialSlash.life-=dt;if(specialSlash.life<=0)specialSlash=null;}
@@ -954,7 +991,7 @@ function update(dt){
  if(infiniteMode&&infiniteBossWaveActive&&!monsters.some(m=>m.alive&&m.boss)){infiniteBossWaveActive=false;say("🏆 50 웨이브 보스를 모두 물리쳤습니다! 일반 몬스터가 다시 등장합니다.");}
  if(exploring||infiniteMode||dungeonMode){exploreSpawnTimer-=dt;if(exploreSpawnTimer<=0){if(infiniteMode&&infiniteBossWaveActive){/* 50웨이브 보스전 중에는 일반 몬스터 스폰 중지 */}else if(infiniteMode&&infiniteBossQueue.length&&monsters.length===0){const b=infiniteBossQueue.shift();addMonster({...b,x:player.x>400?180:620,y:240,maxHp:b.hp,hp:b.hp,alive:true,attackWait:1.5,boss:true,skillWait:4,skillWarning:0});showBossIntro(b);say("♾️ 웨이브 보스 등장: "+b.name);}else if(infiniteMode&&infiniteBossQueue.length===0){spawnMonster();}else if(dungeonMode){spawnDungeonMonster();}else if(exploring&&!infiniteMode&&monsters.length===0){spawnMonster();}exploreSpawnTimer=(infiniteMode?(wave>50?.3:.5):dungeonMode?.5:1);}}
  if(dungeonBossPending&&!monsters.some(m=>m.alive)){const b=bosses[currentStage];dungeonBossPending=false;dungeonBossActive=true;addMonster({...b,x:player.x>400?180:620,y:240,maxHp:b.hp,hp:b.hp,alive:true,attackWait:1.5,boss:true,dungeonBoss:true,skillWait:4,skillWarning:0});showBossIntro(b);say("👑 던전 최종 보스 "+b.name+" 등장!");}
- for(const m of [...monsters]){if(!m.alive)continue;let dx=player.x-m.x,dy=player.y-m.y,d=Math.hypot(dx,dy);if(d>48){m.x+=dx/d*45*dt;m.y+=dy/d*45*dt;}else if(m.attackWait<=0&&invincible<=0){const incoming=m.attack||8;hp-=incoming;invincible=.8;m.attackWait=1.2;say(m.name+"에게 "+incoming+"의 피해를 받았다!");if(hp<=0){handleDeath();return;}updateUI();}m.attackWait-=dt;if(m.boss){m.skillWait-=dt;if(m.skillWait<=0&&m.skillWarning<=0){m.skillWarning=1.6;m.skillX=player.x;m.skillY=player.y;m.skillRadius=m.name==="천공의 지배자"?185:150;m.skillWait=5.5;say("⚠️ "+m.name+"의 "+m.skill+" 준비! 멀리 피하세요!");}if(m.skillWarning>0){m.skillWarning-=dt;if(m.skillWarning<=0){const sd=Math.hypot(player.x-m.skillX,player.y-m.skillY);if(sd<m.skillRadius&&invincible<=0){const damage=Math.ceil(m.attack*1.6);hp-=damage;invincible=1;say("💥 "+m.skill+" 적중! "+damage+" 피해!");if(hp<=0){handleDeath();return;}updateUI();}else say("멋지게 회피했다! "+m.skill+"을 피했습니다.");}}}}syncMonster();
+ for(const m of [...monsters]){if(!m.alive)continue;let dx=player.x-m.x,dy=player.y-m.y,d=Math.hypot(dx,dy);if(d>48){m.x+=dx/d*45*dt;m.y+=dy/d*45*dt;}else if(m.attackWait<=0&&invincible<=0){const incoming=m.attack||8;hp-=incoming;invincible=.8;m.attackWait=1.2;say(m.name+"에게 "+incoming+"의 피해를 받았다!");if(hp<=0){handleDeath();return;}updateUI();}m.attackWait-=dt;if(m.boss){m.skillWait-=dt;if(m.skillWait<=0&&m.skillWarning<=0){m.skillWarning=1.6;m.skillX=player.x;m.skillY=player.y;m.skillRadius=m.skillType==="fire"?190:m.skillType==="ice"?135:m.skillType==="hell"?170:150;m.skillWait=5.5;say("⚠️ "+m.name+"의 "+m.skill+" 준비! 바닥의 위험 표시를 보고 안전한 곳으로 피하세요!");}if(m.skillWarning>0){m.skillWarning-=dt;if(m.skillWarning<=0){const hit=bossSkillHitsPlayer(m);if(hit&&invincible<=0){const multiplier=m.skillType==="fire"?1.9:m.skillType==="hell"?2.1:m.skillType==="holy"?1.8:1.6;const damage=Math.ceil(m.attack*multiplier);hp-=damage;invincible=1;say("💥 "+m.skill+" 적중! "+damage+" 피해!");if(hp<=0){handleDeath();return;}updateUI();}else say("멋지게 회피했다! "+m.skill+"을 피했습니다.");}}}}syncMonster();
  if(bossIntroTimer>0){bossIntroTimer-=dt;if(bossIntroTimer<=0){$("bossIntro").classList.remove("show");}}
 }
 
